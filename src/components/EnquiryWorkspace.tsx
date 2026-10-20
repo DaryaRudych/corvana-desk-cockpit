@@ -52,7 +52,10 @@ export function EnquiryWorkspace({ enquiryId, user, onSent }: { enquiryId: strin
         <PricePanel enquiryId={enquiryId} user={user} terms={terms} editable={open} onPremium={(premium) => setTerms({ ...terms, premium })} />
       </div>
       <AskBox enquiryId={enquiryId} user={user} />
-      <ActionBar enquiryId={enquiryId} user={user} mode={mode} terms={terms} setTerms={setTerms} onMode={changeMode} onReview={setDraft} />
+      {/* The compact action row stays in reach while scrolling; the taller counter/decline forms sit in the flow. */}
+      <div className={mode === 'review' ? 'sticky bottom-0 z-10 -mx-5 -mb-5 bg-gradient-to-t from-[#f2f3f5] from-70% px-5 pt-3 pb-5' : ''}>
+        <ActionBar enquiryId={enquiryId} user={user} mode={mode} terms={terms} setTerms={setTerms} onMode={changeMode} onReview={setDraft} />
+      </div>
       {draft && (
         <DraftMessageModal
           response={draft}

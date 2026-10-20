@@ -9,9 +9,18 @@ const BLOCKER_TONE = { Compliance: 'bad', Credit: 'warn', 'No barge': 'warn' } a
 export function Queue({ rows, selectedId, onSelect }: { rows: QueueRow[]; selectedId: string | null; onSelect: (id: string) => void }) {
   return (
     <aside className="flex min-h-0 w-[340px] shrink-0 flex-col border-r border-zinc-200 bg-white">
-      <div className="flex items-baseline justify-between border-b border-zinc-200 px-3 py-2">
-        <h2 className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">Open enquiries</h2>
-        <span className="num text-[11px] text-zinc-400">{rows.length} · by time to quote due</span>
+      <div className="border-b border-zinc-200 px-3 pt-3 pb-2">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Open enquiries <span className="num ml-1 rounded-full bg-zinc-100 px-1.5 py-px text-[11px] font-semibold text-zinc-600">{rows.length}</span>
+          </h2>
+          <span className="text-[11px] text-zinc-400">blocked last</span>
+        </div>
+        <div className="mt-2 grid grid-cols-[64px_1fr_auto] gap-x-2 text-[10px] font-medium text-zinc-400">
+          <span>Due in</span>
+          <span>Customer · enquiry</span>
+          <span className="text-right" title="Expected margin at the suggested premium">Exp. value</span>
+        </div>
       </div>
       <ol className="min-h-0 flex-1 overflow-y-auto">
         {rows.map((r) => {
@@ -34,7 +43,7 @@ export function Queue({ rows, selectedId, onSelect }: { rows: QueueRow[]; select
                     {mt(r.quantityMt)} {r.gradeName} · {r.vesselName}
                   </span>
                 </span>
-                <span className="num pt-px text-right text-xs text-zinc-600">{blocked ? '—' : usd(r.expectedValue)}</span>
+                <span className={`num pt-px text-right text-xs ${r.expectedValue < 0 && !blocked ? 'text-red-600' : 'text-zinc-600'}`}>{blocked ? '—' : usd(r.expectedValue)}</span>
                 {r.blockers.length > 0 && (
                   <span className="col-start-2 col-end-4 mt-1 flex gap-1">
                     {r.blockers.map((b) => (

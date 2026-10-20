@@ -223,7 +223,7 @@ export function ActionBar({
   }
 
   return (
-    <div className={`px-5 py-4 ${CARD}`}>
+    <div className={`px-5 py-4 ${CARD} shadow-[0_4px_24px_rgba(16,24,40,0.10)]`}>
       {mode === 'review' && (
         <div className="flex items-center gap-2">
           <button

@@ -100,7 +100,9 @@ export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null
     sentences.push([
       'Compliance checks ',
       chip(query('compliance_check', p, user)),
-      ', a barge is free in the window and headroom after the deal is ',
+      ', a barge is ',
+      chip(query('barge_available_in_window', p, user), { label: 'free' }),
+      ' in the window and headroom after the deal is ',
       chip(query('credit_headroom_after_deal', p, user)),
       '.',
     ])
