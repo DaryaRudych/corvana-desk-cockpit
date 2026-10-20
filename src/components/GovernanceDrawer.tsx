@@ -50,12 +50,8 @@ function Catalog({ user }: { user: UserContext }) {
     { title: 'Group', note: 'Shared definitions every business unit inherits', items: METRIC_CATALOG.filter((m) => m.scope === 'group') },
     { title: businessUnitName(user.businessUnit), note: 'Desk-level definitions built on the group model', items: METRIC_CATALOG.filter((m) => m.scope === 'bu') },
   ]
-  const certified = METRIC_CATALOG.filter((m) => m.certified).length
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-zinc-600">
-        {METRIC_CATALOG.length} definitions, {certified} certified. The cockpit, the AI and any other screen read these, and only these, through one query layer.
-      </p>
       {groups.map((g) => (
         <section key={g.title}>
           <div className="mb-1 flex items-baseline justify-between">
@@ -169,7 +165,7 @@ export function GovernanceDrawer({ user, tab, onTab, onClose }: { user: UserCont
         <header className="flex items-start justify-between px-6 pt-5">
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Definitions &amp; access</h2>
-            <p className="text-xs text-zinc-500">One set of metric definitions, one set of permissions, for every screen and the AI.</p>
+            <p className="text-xs text-zinc-500">How every figure on this screen is defined, who is allowed to see which data, and how the AI uses both.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-xl leading-none text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
             ×
