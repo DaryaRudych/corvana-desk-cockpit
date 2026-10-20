@@ -95,3 +95,48 @@ export function scopedTables(ctx: UserContext): Tables {
   cache.set(cacheKey, view)
   return view
 }
+
+const TABLE_LABELS: Record<TableName, string> = {
+  dim_business_unit: 'Business units',
+  dim_desk: 'Desks',
+  dim_customer: 'Customers (incl. group credit limit, KYC)',
+  dim_vessel: 'Vessels (incl. sanctions screening)',
+  dim_grade: 'Fuel grades',
+  fct_market_price: 'Benchmark prices',
+  agg_customer_exposure: 'Group exposure (total per customer)',
+  dim_barge: 'Barges',
+  fct_enquiry: 'Enquiries and quotes',
+  fct_deal: 'Deals',
+  fct_delivery: 'Deliveries and claims',
+  fct_invoice: 'Invoices',
+  fct_barge_schedule: 'Barge schedule',
+  fct_stock: 'Stock and cost',
+}
+
+/**
+ * The rules above in plain language, for the "Who sees what" view.
+ * Built from the same table lists and role checks that scopedTables() enforces.
+ */
+export function describeAccess(ctx: UserContext) {
+  const bu = businessUnitName(ctx.businessUnit)
+  const others = otherBusinessUnits(ctx).map(businessUnitName).join(', ')
+  const seesDetail = ctx.role === 'compliance'
+  return {
+    viewer: userLabel(ctx),
+    tables: [
+      ...GROUP_TABLES.map((t) => ({ table: t, label: TABLE_LABELS[t], owner: 'Group' as const, rule: t === 'agg_customer_exposure' ? 'Total only, no BU breakdown' : 'Shared with all BUs' })),
+      ...BU_TABLES.map((t) => ({ table: t, label: TABLE_LABELS[t], owner: 'BU' as const, rule: `${bu} rows only` })),
+    ],
+    rowLevel: [
+      `Business-unit data (enquiries, deals, deliveries, invoices, barges, schedules, stock) is filtered to ${bu} before any metric is computed. ${others} rows never reach this view, the cockpit or the AI.`,
+      'Group data (customers, vessels, grades, benchmark prices, org structure) is shared across all business units: one counterparty master, one price feed.',
+      `Group exposure is a pre-aggregated total with no BU column. You see the total and your own BU's share; the deals behind other BUs' exposure are "detail restricted".`,
+    ],
+    objectLevel: [
+      seesDetail
+        ? 'As Compliance you see KYC and sanctions-screening case detail as well as the PASS / FLAG result.'
+        : 'Traders see KYC and vessel sanctions screening as PASS / FLAG only. Case detail is visible to Compliance.',
+      'Every metric lists the roles that may see it. A metric outside your role returns "restricted" instead of a value, for the screen and the AI alike.',
+    ],
+  }
+}

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { formatValue } from '../lib/format'
 import { METRIC_CATALOG, type QueryResult } from '../semantic/query'
 import { LockIcon } from './Icons'
+import { useMetricCard } from './metricCardContext'
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'neutral' | 'accent'
 export interface Verdict {
@@ -103,19 +104,26 @@ export function Pill({ tone, children, className = '' }: { tone: Tone; children:
 const UNITS = new Map(METRIC_CATALOG.map((m) => [m.id, m.unit]))
 
 /**
- * Renders a governed number exactly as query() returned it.
- * Withheld values show a lock and the reason; nothing is computed here.
+ * Renders a governed number exactly as query() returned it, as a button that opens
+ * the metric card. Withheld values show a lock; nothing is computed here.
  */
 export function MetricValue({ r, className = '', format }: { r: QueryResult<unknown>; className?: string; format?: (v: never) => string }) {
-  if (r.value === null && r.restricted) {
-    return (
-      <span className={`inline-flex items-center gap-1 text-zinc-400 ${className}`} title={r.restricted}>
-        <LockIcon /> Restricted
-      </span>
-    )
-  }
-  const text = format && r.value !== null ? format(r.value as never) : formatValue(UNITS.get(r.metricId)!, r.value)
-  return <span className={`num ${className}`}>{text}</span>
+  const openCard = useMetricCard()
+  const withheld = r.value === null && r.restricted
+  const text = withheld ? 'Restricted' : format && r.value !== null ? format(r.value as never) : formatValue(UNITS.get(r.metricId)!, r.value)
+  const look = withheld ? `inline-flex items-center gap-1 text-zinc-400 ${className}` : `num ${className}`
+  if (!openCard) return <span className={look}>{text}</span>
+  return (
+    <button
+      type="button"
+      onClick={(e) => openCard(r, e.currentTarget)}
+      title={withheld ? r.restricted : 'Show definition'}
+      className={`${look} cursor-pointer rounded-[3px] decoration-indigo-300 decoration-dotted underline-offset-[3px] hover:underline focus-visible:outline-2 focus-visible:outline-indigo-500`}
+    >
+      {withheld && <LockIcon />}
+      {text}
+    </button>
+  )
 }
 
 /** "detail restricted" marker for totals whose underlying rows belong to other BUs. */

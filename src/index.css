@@ -22,3 +22,14 @@ body {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
