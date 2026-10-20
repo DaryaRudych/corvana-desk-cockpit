@@ -1,9 +1,11 @@
-// Review the terms and the message, then Send. Nothing leaves the browser: Send only records the
-// response for this session. The AI-drafted message text is added in stage 6.
+// AI moment 3 host: review the terms and the AI-drafted message, edit, then Send. Nothing leaves
+// the browser: Send only records the response for this session.
 import { useEffect, useState, type ReactNode } from 'react'
+import { draftMessage } from '../ai/draft'
 import { day, mt, usdMt } from '../lib/format'
 import { submitResponse, type TraderResponse } from '../semantic/actions'
 import { query, type UserContext } from '../semantic/query'
+import { AiBadge, BasedOn } from './ai'
 import { CARD } from './ui'
 
 const TITLES = { quote: 'Send quote', counter: 'Send counter-offer', decline: 'Send decline' } as const
@@ -18,7 +20,8 @@ function Term({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function DraftMessageModal({ response, user, onCancel, onSent }: { response: TraderResponse; user: UserContext; onCancel: () => void; onSent: (summary: string) => void }) {
-  const [message, setMessage] = useState('')
+  const [draft] = useState(() => draftMessage(response, user))
+  const [message, setMessage] = useState(draft.text)
   const [error, setError] = useState<string | null>(null)
   const e = query('enquiry_details', { enquiryId: response.enquiryId }, user).value!
   const price = response.kind === 'decline' ? null : query('quoted_price', { enquiryId: response.enquiryId, premium: response.premium }, user).value
@@ -80,20 +83,27 @@ export function DraftMessageModal({ response, user, onCancel, onSent }: { respon
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs text-zinc-500">Message to the customer</span>
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              <AiBadge label="AI draft" /> Message to the customer, drafted from the terms above. Edit before sending.
+              {message !== draft.text && (
+                <button type="button" onClick={() => setMessage(draft.text)} className="ml-auto font-medium text-indigo-600 hover:text-indigo-800">
+                  Restore draft
+                </button>
+              )}
+            </span>
             <textarea
               value={message}
               onChange={(ev) => setMessage(ev.target.value)}
-              rows={6}
-              placeholder="Write your message. (The AI-drafted message arrives in stage 6.)"
+              rows={11}
               className="resize-none rounded-xl border border-zinc-200 px-3 py-2.5 text-[13px] leading-relaxed text-zinc-900 focus:border-indigo-400 focus:outline-none"
             />
           </label>
+          <BasedOn results={draft.basedOn.map((c) => c.r)} />
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
         </div>
 
         <footer className="flex items-center gap-2 border-t border-zinc-100 px-6 py-4">
-          <span className="text-[11px] text-zinc-400">Demo: Send records the response here; nothing is actually sent.</span>
+          <span className="text-[11px] text-zinc-400">Nothing is sent automatically. Demo: Send records the response here only.</span>
           <button type="button" onClick={onCancel} className="ml-auto rounded-full bg-zinc-100 px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-200">
             Back
           </button>
