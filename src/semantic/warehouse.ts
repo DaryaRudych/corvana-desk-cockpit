@@ -15,7 +15,7 @@ import fctInvoice from '../data/fct_invoice.json'
 import fctBargeSchedule from '../data/fct_barge_schedule.json'
 import fctStock from '../data/fct_stock.json'
 import meta from '../data/meta.json'
-import type { SnapshotMeta, Tables } from './schema'
+import type { EnquiryRow, SnapshotMeta, Tables } from './schema'
 
 const rows = <T>(json: unknown) => json as T[]
 
@@ -37,3 +37,19 @@ export const WAREHOUSE: Readonly<Tables> = {
 }
 
 export const SNAPSHOT = meta as SnapshotMeta
+
+// ── Session writes (no backend: lives until reload). Only permissions.ts calls updateEnquiry. ──
+let version = 0
+const listeners = new Set<() => void>()
+export const getDataVersion = () => version
+export function subscribeToData(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+export function updateEnquiry(enquiryId: string, patch: Partial<EnquiryRow>): void {
+  const rows = WAREHOUSE.fct_enquiry
+  const i = rows.findIndex((e) => e.enquiry_id === enquiryId)
+  rows[i] = { ...rows[i], ...patch }
+  version++
+  listeners.forEach((l) => l())
+}

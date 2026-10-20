@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { businessUnitName, query, type QueryResult, type UserContext } from '../semantic/query'
+import { mt, usdMt } from '../lib/format'
 import { AlertIcon, ChevronIcon } from './Icons'
+import { termsParams, type Terms } from './terms'
 import { Card, DetailRestricted, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
 function Check({ label, r }: { label: string; r: QueryResult<'PASS' | 'FLAG'> }) {
@@ -15,7 +17,7 @@ function Check({ label, r }: { label: string; r: QueryResult<'PASS' | 'FLAG'> })
   )
 }
 
-export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
+export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user: UserContext; terms: Terms }) {
   const [open, setOpen] = useState(false)
   const p = { enquiryId }
   const kyc = query('kyc_status', p, user)
@@ -24,7 +26,7 @@ export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserCo
   const screeningDetail = query('vessel_screening_detail', p, user)
   const blocked = query('compliance_check', p, user).value === 'FLAG'
 
-  const after = query('credit_headroom_after_deal', p, user)
+  const after = query('credit_headroom_after_deal', termsParams(enquiryId, terms), user)
   const before = query('credit_headroom_before_deal', p, user)
   const limit = query('group_credit_limit', p, user)
   const exposure = query('group_exposure', p, user)
@@ -66,6 +68,11 @@ export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserCo
             tone={negative ? 'bad' : 'ok'}
             caption={
               <>
+                <span className="num">
+                  At {usdMt(terms.premium)}/mt × {mt(terms.quantity)}
+                  {terms.letterOfCredit && ', under letter of credit'}
+                </span>
+                <br />
                 Group limit <MetricValue r={limit} className="font-medium text-zinc-700" />
                 {negative && ' · this deal breaches it'}
               </>

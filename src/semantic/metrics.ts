@@ -19,6 +19,8 @@ export interface EnquiryParams extends BaseParams {
 export interface TermsParams extends EnquiryParams {
   premium?: number
   quantity?: number
+  /** Deal secured by a letter of credit: the bank carries the payment risk, so it uses no customer credit. */
+  letterOfCredit?: boolean
 }
 
 export interface ComputeCtx {
@@ -201,7 +203,7 @@ function terms(ctx: ComputeCtx, p: TermsParams) {
 }
 const headroomAfter = (ctx: ComputeCtx, p: TermsParams) => {
   const { e, quantity, price } = terms(ctx, p)
-  return round2(headroomBefore(ctx, e.customer_id) - quantity * price)
+  return round2(headroomBefore(ctx, e.customer_id) - (p.letterOfCredit ? 0 : quantity * price))
 }
 
 function bargingPerMt(ctx: ComputeCtx, deskId: string): number {
@@ -585,8 +587,9 @@ export const METRICS = {
   credit_headroom_after_deal: defineMetric({
     id: 'credit_headroom_after_deal',
     name: 'Credit headroom after this deal',
-    definition: 'Group credit left if this deal is done at these terms. Negative means the deal breaches the limit.',
-    formula: 'group credit limit − group exposure − quantity × (benchmark + premium)',
+    definition:
+      'Group credit left if this deal is done at these terms. Negative means the deal breaches the limit. A deal secured by a letter of credit uses no customer credit.',
+    formula: 'group credit limit − group exposure − quantity × (benchmark + premium); deal value counts as 0 under a letter of credit',
     owner: 'Credit',
     certified: true,
     certifiedOn: '2026-09-01',

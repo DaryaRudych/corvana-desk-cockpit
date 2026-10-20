@@ -1,7 +1,7 @@
 // User context + row-level and object-level rules (BUILD_INSTRUCTIONS §4.2).
 // This is the only module that touches the raw warehouse.
-import type { TableName, Tables } from './schema'
-import { WAREHOUSE } from './warehouse'
+import type { EnquiryRow, TableName, Tables } from './schema'
+import { WAREHOUSE, getDataVersion, updateEnquiry } from './warehouse'
 
 export type Role = 'trader' | 'compliance'
 
@@ -64,7 +64,7 @@ const cache = new Map<string, Tables>()
  *  - object-level: only compliance sees KYC and screening detail; others see PASS / FLAG.
  */
 export function scopedTables(ctx: UserContext): Tables {
-  const cacheKey = `${ctx.role}|${ctx.businessUnit}`
+  const cacheKey = `${ctx.role}|${ctx.businessUnit}|${getDataVersion()}`
   const hit = cache.get(cacheKey)
   if (hit) return hit
 
@@ -94,6 +94,16 @@ export function scopedTables(ctx: UserContext): Tables {
   }
   cache.set(cacheKey, view)
   return view
+}
+
+/** The trader's response to an enquiry. Same row-level rule as reads: only enquiries in the user's BU. */
+export function writeEnquiryResponse(ctx: UserContext, enquiryId: string, patch: Pick<EnquiryRow, 'status' | 'action' | 'quoted_premium_usd_mt' | 'decline_reason'>) {
+  if (!scopedTables(ctx).fct_enquiry.some((e) => e.enquiry_id === enquiryId)) {
+    const owner = ownerOfEnquiry(enquiryId)
+    throw new Error(owner ? restrictedMessage([owner], ctx) : `Enquiry ${enquiryId} not found.`)
+  }
+  cache.clear()
+  updateEnquiry(enquiryId, patch)
 }
 
 const TABLE_LABELS: Record<TableName, string> = {
