@@ -223,9 +223,9 @@ export function AskDrawer({ customer, thread, onAsk, onClose }: { customer: stri
 /** Opens the Ask drawer: shows the AI mark and how many questions this enquiry already has. */
 export function AskButton({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100">
+    <button type="button" onClick={onClick} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-50">
       <AiMark className="size-3" /> Ask a question
-      {count > 0 && <span className="num rounded-full bg-indigo-50 px-1.5 text-[10px] font-semibold text-indigo-700">{count}</span>}
+      {count > 0 && <span className="num text-zinc-400">{count}</span>}
     </button>
   )
 }

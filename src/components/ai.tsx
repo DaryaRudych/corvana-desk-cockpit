@@ -1,5 +1,5 @@
 // Shared rendering for AI output: the AI mark, text with metric chips, and the "Based on" line.
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { isChip, type Chip, type Segment } from '../ai/types'
 import { METRIC_CATALOG, type QueryResult } from '../semantic/query'
 import { useMetricCard } from './metricCardContext'
@@ -18,13 +18,13 @@ export function AiMark({ className = 'size-3.5' }: { className?: string }) {
   )
 }
 
-/** A governed value inside AI text: quiet indigo text that opens the metric card. */
+/** A governed value inside AI text: reads as text, a faint dotted underline marks it as clickable. */
 export function MetricChip({ c }: { c: Chip }) {
   return (
     <MetricValue
       r={c.r}
       format={c.label !== undefined ? () => c.label! : c.format}
-      className="font-semibold text-indigo-700 underline decoration-indigo-300 decoration-dotted underline-offset-[3px] hover:decoration-indigo-600"
+      className="font-medium text-zinc-900 underline decoration-zinc-300 decoration-dotted underline-offset-[3px] hover:decoration-indigo-500"
     />
   )
 }
@@ -39,12 +39,20 @@ export function Segments({ parts }: { parts: Segment[] }) {
   )
 }
 
-/** "Based on" the metrics the AI read; each name opens its definition. */
+/** "Based on" the metrics the AI read: a quiet "Sources (n)" toggle; each name opens its definition. */
 export function BasedOn({ results }: { results: QueryResult<unknown>[] }) {
   const open = useMetricCard()
+  const [shown, setShown] = useState(false)
   if (!results.length) return null
+  if (!shown) {
+    return (
+      <button type="button" onClick={() => setShown(true)} className="self-start text-xs text-zinc-400 hover:text-zinc-700">
+        Sources ({results.length})
+      </button>
+    )
+  }
   return (
-    <p className="text-[11px] leading-relaxed text-zinc-400">
+    <p className="text-xs leading-relaxed text-zinc-400">
       Based on{' '}
       {results.map((r, i) => (
         <Fragment key={r.metricId}>
@@ -53,7 +61,10 @@ export function BasedOn({ results }: { results: QueryResult<unknown>[] }) {
             {NAMES.get(r.metricId) ?? r.metricId}
           </button>
         </Fragment>
-      ))}
+      ))}{' '}
+      <button type="button" onClick={() => setShown(false)} className="text-zinc-400 hover:text-zinc-700">
+        · hide
+      </button>
     </p>
   )
 }
