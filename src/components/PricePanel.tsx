@@ -59,7 +59,7 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
 
   if (blocked) {
     return (
-      <Card step={3} title="What price?" subtitle="Suggested premium and the evidence" verdict={{ tone: 'neutral', label: 'No price' }}>
+      <Card title="Pricing & Margin" verdict={{ tone: 'neutral', label: 'No price' }}>
         <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-500">No price: this enquiry is blocked pending a compliance referral.</div>
         <List>{benchmarkRow}</List>
       </Card>
@@ -84,7 +84,7 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt` }
 
   return (
-    <Card step={3} title="What price?" subtitle="Suggested premium and the evidence" verdict={verdict}>
+    <Card title="Pricing & Margin" verdict={verdict}>
       <Hero
         label="Suggested premium"
         tone="accent"

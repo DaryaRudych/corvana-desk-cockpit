@@ -89,7 +89,7 @@ export function DeliverablePanel({ enquiryId, user }: { enquiryId: string; user:
         : { tone: 'ok', label: 'Barge available' }
 
   return (
-    <Card step={2} title="Can we deliver?" subtitle="Barges, vessel ETA and stock" verdict={verdict}>
+    <Card title="Barge Availability & Stock" verdict={verdict}>
       {t && t.barges.length > 0 ? (
         <div>
           <div className="mb-1 flex items-baseline justify-between text-[11px] text-zinc-400">

@@ -40,7 +40,7 @@ export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserCo
       : { tone: 'ok', label: 'Clear to trade' }
 
   return (
-    <Card step={1} title="Can we trade?" subtitle="Compliance and group credit" verdict={verdict}>
+    <Card title="Compliance & Credit" verdict={verdict}>
       <div className="grid grid-cols-2 gap-2">
         <Check label="Customer KYC" r={kyc} />
         <Check label="Vessel screening" r={screening} />

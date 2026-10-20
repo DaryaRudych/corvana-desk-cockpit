@@ -13,17 +13,13 @@ export interface Verdict {
 
 export const CARD = 'rounded-2xl bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_16px_rgba(16,24,40,0.05)]'
 
-/** Decision card: the question it answers, what it covers, and its one-line answer. Same frame for every card. */
-export function Card({ step, title, subtitle, verdict, children }: { step: number; title: string; subtitle: string; verdict: Verdict; children: ReactNode }) {
+/** Decision card: a title and its one-line answer as a status pill. Same frame for every card. */
+export function Card({ title, verdict, children }: { title: string; verdict: Verdict; children: ReactNode }) {
   return (
     <section className={`flex flex-col ${CARD}`}>
-      <header className="flex items-start justify-between gap-2 px-5 pt-4">
-        <div>
-          <div className="text-[11px] font-medium text-zinc-400">Step {step}</div>
-          <h2 className="text-base leading-tight font-semibold tracking-tight whitespace-nowrap text-zinc-900">{title}</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p>
-        </div>
-        <Pill tone={verdict.tone} className="shrink-0 whitespace-nowrap">
+      <header className="flex flex-col items-start gap-1.5 px-5 pt-4">
+        <h2 className="text-base leading-snug font-semibold tracking-tight whitespace-nowrap text-zinc-900">{title}</h2>
+        <Pill tone={verdict.tone} className="whitespace-nowrap">
           {verdict.label}
         </Pill>
       </header>
