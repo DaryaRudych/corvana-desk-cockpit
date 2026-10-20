@@ -1,18 +1,15 @@
-// AI moment 2: "Ask about this enquiry". One thread component, three trial placements
-// (inline under the cards, docked right panel, slide-over drawer). History is kept per
-// enquiry for the session by the App, whichever placement is active.
+// AI moment 2: "Ask about this enquiry", in a non-modal drawer opened from the AI summary.
+// History is kept per enquiry for the session by the App.
 import { useEffect, useRef, useState } from 'react'
 import { SUGGESTED_QUESTIONS, type Answer } from '../ai/ask'
 import { usdMt } from '../lib/format'
 import { AiMark, BasedOn, MetricChip, Segments } from './ai'
 import { LockIcon } from './Icons'
-import { CARD } from './ui'
 
 export interface Turn {
   question: string
   answer: Answer
 }
-export type AskPlacement = 'inline' | 'dock' | 'drawer'
 
 type Chart = NonNullable<Answer['chart']>
 
@@ -198,35 +195,24 @@ function Title({ customer }: { customer: string }) {
   )
 }
 
-/** Placement A: inline card under the panels; the thread scrolls inside a fixed height. */
-export function AskInline({ customer, thread, onAsk }: { customer: string; thread: Turn[]; onAsk: (q: string) => void }) {
+/** Slide-over thread. Non-modal: the cards stay readable and clickable while asking. */
+export function AskDrawer({ customer, thread, onAsk, onClose }: { customer: string; thread: Turn[]; onAsk: (q: string) => void; onClose: () => void }) {
+  useEffect(() => {
+    // Esc closes the topmost layer only: a metric card opened from inside the thread goes first.
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('[role="dialog"]') && onClose()
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [onClose])
   return (
-    <section className={`flex flex-col gap-3 px-5 py-4 ${CARD}`}>
-      <Title customer={customer} />
-      <AskThread thread={thread} onAsk={onAsk} />
-    </section>
-  )
-}
-
-/** Placement B: a docked column on the right of the enquiry screen, collapsible to a rail. */
-export function AskDock({ customer, thread, onAsk }: { customer: string; thread: Turn[]; onAsk: (q: string) => void }) {
-  const [open, setOpen] = useState(true)
-  if (!open) {
-    return (
-      <aside className="flex w-12 shrink-0 flex-col items-center gap-2 border-l border-zinc-200 bg-white pt-4">
-        <button type="button" onClick={() => setOpen(true)} title="Ask about this enquiry" className="rounded-full p-2 hover:bg-indigo-50">
-          <AiMark className="size-5" />
-        </button>
-        {thread.length > 0 && <span className="num rounded-full bg-indigo-50 px-1.5 text-[10px] font-semibold text-indigo-700">{thread.length}</span>}
-      </aside>
-    )
-  }
-  return (
-    <aside className="flex w-[380px] shrink-0 flex-col gap-3 border-l border-zinc-200 bg-white px-4 py-4">
+    <aside
+      role="complementary"
+      aria-label="Ask about this enquiry"
+      className="fixed top-12 right-0 bottom-0 z-30 flex w-[440px] animate-[slide-in_200ms_ease-out] flex-col gap-3 border-l border-zinc-200 bg-white px-5 py-5 shadow-[-8px_0_32px_rgba(16,24,40,0.10)]"
+    >
       <div className="flex items-start justify-between gap-2">
         <Title customer={customer} />
-        <button type="button" onClick={() => setOpen(false)} title="Collapse" className="rounded-full px-1.5 text-lg leading-none text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
-          ›
+        <button type="button" onClick={onClose} aria-label="Close" className="rounded-full px-1.5 text-xl leading-none text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
+          ×
         </button>
       </div>
       <AskThread thread={thread} onAsk={onAsk} fill />
@@ -234,34 +220,11 @@ export function AskDock({ customer, thread, onAsk }: { customer: string; thread:
   )
 }
 
-/** Placement C: a slide-over drawer, opened on demand. */
-export function AskDrawer({ customer, thread, onAsk, onClose }: { customer: string; thread: Turn[]; onAsk: (q: string) => void; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div className="fixed inset-0 z-40">
-      <div className="absolute inset-0 animate-[fade-in_200ms_ease-out] bg-zinc-900/10" onClick={onClose} />
-      <aside role="dialog" aria-label="Ask about this enquiry" className="absolute inset-y-0 right-0 flex w-[460px] animate-[slide-in_200ms_ease-out] flex-col gap-3 bg-white px-5 py-5 shadow-[-8px_0_32px_rgba(16,24,40,0.12)]">
-        <div className="flex items-start justify-between gap-2">
-          <Title customer={customer} />
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full px-1.5 text-xl leading-none text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
-            ×
-          </button>
-        </div>
-        <AskThread thread={thread} onAsk={onAsk} fill />
-      </aside>
-    </div>
-  )
-}
-
-/** Opens the drawer placement: a quiet button with the AI mark and the thread length. */
+/** Opens the Ask drawer: shows the AI mark and how many questions this enquiry already has. */
 export function AskButton({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-700 hover:border-indigo-300 hover:text-indigo-700">
-      <AiMark className="size-3" /> Ask
+    <button type="button" onClick={onClick} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100">
+      <AiMark className="size-3" /> Ask a question
       {count > 0 && <span className="num rounded-full bg-indigo-50 px-1.5 text-[10px] font-semibold text-indigo-700">{count}</span>}
     </button>
   )
