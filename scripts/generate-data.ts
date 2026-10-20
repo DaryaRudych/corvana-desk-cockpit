@@ -313,7 +313,7 @@ const customers: Customer[] = CUSTOMER_NAMES.map(([name, parent], i) => {
 
 const [S1C, S2C, S3C, S4C] = customers
 Object.assign(S1C, { weight: 0.75, basePremium: 10, lateMean: 4, claimProb: 0.05, terms: 30, tradesRtm: false, rtmPremiumOffset: 6 })
-Object.assign(S2C, { basePremium: 8, lateMean: 1, tradesRtm: false })
+Object.assign(S2C, { basePremium: 11, lateMean: 1, tradesRtm: false })
 Object.assign(S3C, { basePremium: 9, lateMean: 1, tradesRtm: false })
 Object.assign(S4C, { weight: 1.4, basePremium: 14, lateMean: 0, claimProb: 0, terms: 30, tradesRtm: false })
 const SCENARIO_CUSTOMERS = new Set([S1C.id, S2C.id, S3C.id, S4C.id])
@@ -823,6 +823,7 @@ assert(freeBarges(S2, S2_DAY).length === 0, 'S2: no HSFO barge on requested day'
 assert(freeBarges(S2, S2_DAY + 1).length === 0, 'S2: no HSFO barge on D+1')
 assert(freeBarges(S2, S2_DAY + 2).length === 1, 'S2: exactly one HSFO barge free on D+2')
 assert(groupExposure(S2C) + 800 * (benchOn('GRD_HSFO', 0) + suggestedPremium(S2C)) < S2C.creditLimit, 'S2 credit fine')
+assert(marginPerMt(S2, suggestedPremium(S2C)) >= 3, `S2 margin ≥ $3/mt (got ${round2(marginPerMt(S2, suggestedPremium(S2C)))})`)
 
 const s4Prem = suggestedPremium(S4C)
 assert(avgPremium(custDeals(ASIA, S4C)) > deskPrem + 2, 'S4 premium well above desk average')
