@@ -1,0 +1,12 @@
+{
+  "seed": 20261020,
+  "now": "2026-10-20T09:00:00+08:00",
+  "timezone": "+08:00",
+  "note": "Demo clock is frozen at `now`. Scenario ids are for docs/tests only; the app must not special-case them.",
+  "scenarios": {
+    "S1": "ENQ-AH-01218",
+    "S2": "ENQ-AH-01221",
+    "S3": "ENQ-AH-01215",
+    "S4": "ENQ-AH-01211"
+  }
+}
