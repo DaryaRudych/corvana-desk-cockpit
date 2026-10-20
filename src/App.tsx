@@ -45,12 +45,12 @@ export default function App() {
         <Queue rows={queue} selectedId={selectedId} onSelect={setSelectedId} />
         <main className="min-w-0 flex-1 overflow-y-auto">
           {selectedId ? (
-            <div key={selectedId} className="mx-auto flex max-w-[1180px] flex-col gap-3 p-4">
+            <div key={selectedId} className="mx-auto flex max-w-[1240px] flex-col gap-3 p-4">
               <EnquiryHeader enquiryId={selectedId} user={user} />
               <Placeholder label="AI enquiry brief">
                 Arrives in stage 6. Rule-based suggested move for this enquiry: <b className="text-zinc-700">{move?.move}</b>
               </Placeholder>
-              <div className="grid grid-cols-3 items-start gap-3">
+              <div className="grid grid-cols-3 items-stretch gap-3">
                 <SafePanel enquiryId={selectedId} user={user} />
                 <DeliverablePanel enquiryId={selectedId} user={user} />
                 <PricePanel enquiryId={selectedId} user={user} />

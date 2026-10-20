@@ -4,15 +4,46 @@ import { formatValue } from '../lib/format'
 import { METRIC_CATALOG, type QueryResult } from '../semantic/query'
 import { LockIcon } from './Icons'
 
-export function Panel({ step, title, children, className = '' }: { step?: number; title: string; children: ReactNode; className?: string }) {
+export interface Verdict {
+  tone: Tone
+  label: string
+}
+const EDGE: Record<Tone, string> = {
+  ok: 'border-t-emerald-500',
+  warn: 'border-t-amber-500',
+  bad: 'border-t-red-500',
+  neutral: 'border-t-zinc-300',
+  accent: 'border-t-indigo-500',
+}
+
+/** Decision panel: a question as the title, what it covers underneath, and its one-line answer as a status pill. */
+export function Panel({ step, title, subtitle, verdict, children }: { step: number; title: string; subtitle: string; verdict: Verdict; children: ReactNode }) {
   return (
-    <section className={`flex flex-col rounded-md border border-zinc-200 bg-white ${className}`}>
-      <h2 className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-        {step !== undefined && <span className="flex size-4 items-center justify-center rounded-full bg-zinc-800 text-[10px] text-white">{step}</span>}
-        {title}
-      </h2>
-      <div className="flex flex-1 flex-col gap-3 p-3">{children}</div>
+    <section className={`flex flex-col rounded-lg border border-t-[3px] border-zinc-200 bg-white shadow-sm ${EDGE[verdict.tone]}`}>
+      <header className="border-b border-zinc-100 px-4 pt-3 pb-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-semibold text-white">{step}</span>
+            <h2 className="text-[15px] leading-tight font-semibold whitespace-nowrap text-zinc-900">{title}</h2>
+          </div>
+          <Pill tone={verdict.tone} className="shrink-0 px-2 py-0.5 text-xs whitespace-nowrap">
+            {verdict.label}
+          </Pill>
+        </div>
+        <p className="mt-0.5 pl-[30px] text-xs text-zinc-500">{subtitle}</p>
+      </header>
+      <div className="flex flex-1 flex-col gap-3 px-4 py-3">{children}</div>
     </section>
+  )
+}
+
+/** Small uppercase label over a value, for fact strips. */
+export function Fact({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <div className="text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">{label}</div>
+      <div className="num text-sm font-medium text-zinc-900">{children}</div>
+    </div>
   )
 }
 
@@ -62,4 +93,9 @@ export function DetailRestricted({ message }: { message: string }) {
       <LockIcon className="size-2.5" /> detail restricted
     </span>
   )
+}
+
+/** Sub-heading inside a panel. */
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return <h3 className="text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">{children}</h3>
 }

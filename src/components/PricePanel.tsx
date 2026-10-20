@@ -1,7 +1,7 @@
 import { signedUsdMt, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type UserContext } from '../semantic/query'
-import { MetricValue, Panel, Pill, Row } from './ui'
+import { MetricValue, Panel, Pill, Row, SectionLabel, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -39,7 +39,7 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
 
   if (blocked) {
     return (
-      <Panel step={3} title="Price">
+      <Panel step={3} title="What price?" subtitle="Premium and the evidence" verdict={{ tone: 'neutral', label: 'No price' }}>
         <Row label={`Benchmark, ${grade}`}>
           <MetricValue r={bench} />
         </Row>
@@ -62,9 +62,42 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const claimRatio = custClaim.value !== null && deskClaim.value ? custClaim.value / deskClaim.value : null
   const w = win.value
 
+  const thinMargin = (marginMt.value ?? 0) < 3
+  const verdict: Verdict = thinMargin
+    ? { tone: 'warn', label: 'Margin under $3/mt' }
+    : { tone: 'accent', label: `Suggest ${usdMt(suggested.value ?? 0)}` }
+
   return (
-    <Panel step={3} title="Price">
+    <Panel step={3} title="What price?" subtitle="Premium and the evidence" verdict={verdict}>
+      <div className="rounded-md bg-indigo-50 px-3 py-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs text-zinc-600">Suggested premium</span>
+          <MetricValue r={suggested} className="text-2xl font-semibold text-indigo-700" />
+        </div>
+        {breakdown && (
+          <div className="mt-1 flex flex-wrap justify-end gap-1">
+            <Pill tone="neutral">
+              {breakdown.baseSource === 'customer' ? 'customer avg' : 'desk avg'} {usdMt(breakdown.base)}
+            </Pill>
+            {breakdown.claimAdj > 0 && <Pill tone="warn">+${breakdown.claimAdj} claims</Pill>}
+            {breakdown.dpdAdj > 0 && <Pill tone="warn">+${breakdown.dpdAdj} late payment</Pill>}
+          </div>
+        )}
+        <div className="mt-2 flex flex-col gap-0.5 border-t border-indigo-100 pt-2">
+          <Row label="Quoted price">
+            <MetricValue r={price} className="font-medium" />
+          </Row>
+          <Row label="Expected margin">
+            <MetricValue r={margin} className={`font-medium ${thinMargin ? 'text-amber-700' : ''}`} />{' '}
+            <span className="text-xs text-zinc-400">
+              (<MetricValue r={marginMt} />)
+            </span>
+          </Row>
+        </div>
+      </div>
+
       <div className="flex flex-col gap-1">
+        <SectionLabel>Market</SectionLabel>
         <Row label={`Benchmark, ${grade}`}>
           <MetricValue r={bench} />
           <MetricValue r={delta} format={(v: number) => signedUsdMt(v)} className={`ml-1.5 text-xs ${(delta.value ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`} />
@@ -75,27 +108,23 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
       </div>
 
       <div className="flex flex-col gap-1 border-t border-zinc-100 pt-3">
+        <SectionLabel>Customer vs desk, 12 months</SectionLabel>
         <Row label="Avg premium">
-          <MetricValue r={custPrem} format={(v: number) => usdMt(v)} /> <span className="text-zinc-400">vs desk</span>{' '}
-          <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} />
-        </Row>
-        <Row sub label="Customer deals, 12m">
-          <MetricValue r={deals} />
+          <MetricValue r={custPrem} format={(v: number) => usdMt(v)} /> <span className="text-zinc-400">vs</span> <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} />
         </Row>
         <Row label="Claim share">
-          <MetricValue r={custClaim} /> <span className="text-zinc-400">vs desk</span> <MetricValue r={deskClaim} />
+          <MetricValue r={custClaim} /> <span className="text-zinc-400">vs</span> <MetricValue r={deskClaim} />
+          {claimRatio !== null && claimRatio > 2 && <span className="ml-1 text-xs text-amber-700">({claimRatio.toFixed(1)}×)</span>}
         </Row>
-        {claimRatio !== null && claimRatio > 2 && (
-          <Row sub label="Ratio">
-            <span className="text-amber-700">{claimRatio.toFixed(1)}× desk</span>
-          </Row>
-        )}
+        <Row sub label="Customer deals">
+          <MetricValue r={deals} />
+        </Row>
       </div>
 
       {w && (
         <div className="border-t border-zinc-100 pt-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-zinc-600">Win range, similar deals</span>
+            <SectionLabel>Win range, similar deals</SectionLabel>
             <span className="num text-xs text-zinc-400">n = {w.n}</span>
           </div>
           <WinRangeBar w={w} suggested={suggested.value} />
@@ -107,28 +136,6 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
           </div>
         </div>
       )}
-
-      <div className="flex flex-col gap-1 rounded border border-indigo-100 bg-indigo-50/50 p-2">
-        <Row label={<span className="font-medium text-zinc-800">Suggested premium</span>}>
-          <MetricValue r={suggested} className="font-semibold text-indigo-700" />
-        </Row>
-        {breakdown && (
-          <div className="flex flex-wrap gap-1 text-[11px]">
-            <Pill tone="neutral">
-              {breakdown.baseSource === 'customer' ? 'customer avg' : 'desk avg'} {usdMt(breakdown.base)}
-            </Pill>
-            {breakdown.claimAdj > 0 && <Pill tone="warn">+${breakdown.claimAdj} claims</Pill>}
-            {breakdown.dpdAdj > 0 && <Pill tone="warn">+${breakdown.dpdAdj} late payment</Pill>}
-          </div>
-        )}
-        <Row label="Quoted price">
-          <MetricValue r={price} />
-        </Row>
-        <Row label="Expected margin">
-          <MetricValue r={margin} /> <span className="text-xs text-zinc-400">(<MetricValue r={marginMt} />)</span>
-        </Row>
-      </div>
-      <p className="text-[11px] text-zinc-400">Quote builder (premium slider) arrives in stage 5.</p>
     </Panel>
   )
 }

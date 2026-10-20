@@ -2,7 +2,7 @@ import { dateTime, dayOfMonth, hourOfDay, mt, weekdayLetter } from '../lib/forma
 import type { ValueOf } from '../semantic/metrics'
 import { query, type UserContext } from '../semantic/query'
 import { AlertIcon } from './Icons'
-import { MetricValue, Panel, Pill, Row } from './ui'
+import { MetricValue, Panel, Row, SectionLabel, type Verdict } from './ui'
 
 type Timeline = ValueOf<'barge_timeline'>
 
@@ -80,40 +80,48 @@ export function DeliverablePanel({ enquiryId, user }: { enquiryId: string; user:
   const qty = details?.quantity_mt ?? 0
   const stockOk = (stock.value ?? 0) >= qty
 
+  const verdict: Verdict = !stockOk
+    ? { tone: 'bad', label: 'Short of stock' }
+    : !available.value
+      ? { tone: 'warn', label: 'No barge in window' }
+      : t?.etaAfterWindowStart
+        ? { tone: 'warn', label: 'Barge free · ETA late' }
+        : { tone: 'ok', label: 'Barge available' }
+
   return (
-    <Panel step={2} title="Deliverable?">
-      <div className="flex items-center justify-between">
-        <span className="text-zinc-600">Barge in window</span>
-        {available.value ? <Pill tone="ok">Available</Pill> : <Pill tone="warn">None free</Pill>}
-      </div>
-      {t && t.barges.length > 0 ? (
-        <div>
-          <BargeTimeline t={t} />
-          <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-zinc-500">
-            <span className="inline-flex items-center gap-1">
-              <i className="inline-block size-2 rounded-sm bg-zinc-300" /> booked
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <i className="inline-block size-2 rounded-sm border border-emerald-500 bg-emerald-100" /> free
-            </span>
-            <span>
-              Barges for {details?.gradeName} ≥ {mt(qty)}
-            </span>
+    <Panel step={2} title="Can we deliver?" subtitle="Barges, vessel ETA and stock" verdict={verdict}>
+      <div className="flex flex-col gap-1.5">
+        <SectionLabel>Barge schedule · window ± 3 days</SectionLabel>
+        {t && t.barges.length > 0 ? (
+          <div>
+            <BargeTimeline t={t} />
+            <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-zinc-500">
+              <span className="inline-flex items-center gap-1">
+                <i className="inline-block size-2 rounded-sm bg-zinc-300" /> booked
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <i className="inline-block size-2 rounded-sm border border-emerald-500 bg-emerald-100" /> free
+              </span>
+              <span>
+                Barges for {details?.gradeName} ≥ {mt(qty)}
+              </span>
+            </div>
           </div>
-        </div>
-      ) : (
-        <p className="text-xs text-zinc-500">No barge on this desk supports {details?.gradeName} at this quantity.</p>
-      )}
-      {t?.etaAfterWindowStart && (
-        <div className="flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-          <AlertIcon /> Vessel ETA {dateTime(t.vesselEta)} is after the window starts.
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-zinc-500">No barge on this desk supports {details?.gradeName} at this quantity.</p>
+        )}
+        {t?.etaAfterWindowStart && (
+          <div className="flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+            <AlertIcon /> Vessel ETA {dateTime(t.vesselEta)} is after the window starts.
+          </div>
+        )}
+      </div>
       <div className="flex flex-col gap-1 border-t border-zinc-100 pt-3">
-        <Row label={`Stock, ${details?.gradeName}`}>
+        <SectionLabel>Stock</SectionLabel>
+        <Row label={`${details?.gradeName} in stock`}>
           <MetricValue r={stock} className={stockOk ? '' : 'text-red-600'} />
         </Row>
-        <Row sub label="Needed for this enquiry">
+        <Row label="Needed for this enquiry">
           <span className="num">{mt(qty)}</span>
         </Row>
       </div>
