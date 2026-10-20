@@ -1,6 +1,6 @@
-import { signedUsdMt, usd, usdMt } from '../lib/format'
+import { usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
-import { query, type UserContext } from '../semantic/query'
+import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { Card, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
@@ -29,6 +29,18 @@ export function WinRangeBar({ w, suggested }: { w: WinRange; suggested: number |
   )
 }
 
+/** Day-on-day change: ▲ green, ▼ red, flat grey. */
+function DeltaChip({ r }: { r: QueryResult<number> }) {
+  const v = r.value ?? 0
+  const style = v > 0 ? 'bg-emerald-50 text-emerald-600' : v < 0 ? 'bg-red-50 text-red-600' : 'bg-zinc-100 text-zinc-500'
+  return (
+    <span className={`ml-2 inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-semibold ${style}`} title="Change vs yesterday">
+      <span aria-hidden="true">{v > 0 ? '▲' : v < 0 ? '▼' : '■'}</span>
+      <MetricValue r={r} format={(n: number) => usdMt(Math.abs(n))} />
+    </span>
+  )
+}
+
 const VS = ({ children }: { children: string }) => <span className="mx-1 font-normal text-zinc-400">{children}</span>
 
 export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
@@ -41,7 +53,7 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const benchmarkRow = (
     <ListRow label={`Benchmark ${grade ?? ''}`}>
       <MetricValue r={bench} format={(v: number) => usdMt(v)} />
-      <MetricValue r={delta} format={(v: number) => signedUsdMt(v)} className={`ml-1.5 text-xs ${(delta.value ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+      <DeltaChip r={delta} />
     </ListRow>
   )
 

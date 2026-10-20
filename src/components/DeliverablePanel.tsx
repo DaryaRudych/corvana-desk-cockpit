@@ -6,34 +6,35 @@ import { Card, MetricValue, Tile, type Verdict } from './ui'
 
 type Timeline = ValueOf<'barge_timeline'>
 
-const LABEL_W = 92
-const COL_W = 26
-const ROW_H = 24
-const HEAD_H = 30
+const LABEL_W = 66
+const COL_W = 30
+const ROW_H = 40
+const HEAD_H = 44
 
 /** Barge × day grid (one delivery per barge per day): grey = booked, green = free day, indigo band = requested window, line = vessel ETA. */
 function BargeTimeline({ t }: { t: Timeline }) {
   const width = LABEL_W + t.days.length * COL_W
-  const height = HEAD_H + Math.max(1, t.barges.length) * ROW_H + 4
+  const height = HEAD_H + Math.max(1, t.barges.length) * ROW_H + 16
   const x = (date: string, hour = 0) => LABEL_W + (t.days.indexOf(date) + hour / 24) * COL_W
   const winX = x(t.windowStart)
   const winW = x(t.windowEnd) + COL_W - winX
   const etaDay = t.vesselEta.slice(0, 10)
   const etaVisible = t.days.includes(etaDay)
   const etaX = etaVisible ? x(etaDay, hourOfDay(t.vesselEta)) : etaDay < t.days[0] ? LABEL_W : width
+  const late = t.etaAfterWindowStart
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Barge timeline">
-      <rect x={winX} y={0} width={winW} height={height} rx={4} className="fill-indigo-50" />
-      <text x={winX + winW / 2} y={8} textAnchor="middle" className="fill-indigo-700 text-[7px] font-semibold">
+      <rect x={winX} y={0} width={winW} height={height - 14} rx={6} className="fill-indigo-50" />
+      <text x={winX + winW / 2} y={11} textAnchor="middle" className="fill-indigo-600 text-[9px] font-semibold tracking-wide">
         WINDOW
       </text>
       {t.days.map((d) => (
         <g key={d}>
-          <text x={x(d) + COL_W / 2} y={18} textAnchor="middle" className="fill-zinc-400 text-[7px]">
+          <text x={x(d) + COL_W / 2} y={25} textAnchor="middle" className="fill-zinc-400 text-[9px]">
             {weekdayLetter(d)}
           </text>
-          <text x={x(d) + COL_W / 2} y={27} textAnchor="middle" className="num fill-zinc-600 text-[8px] font-medium">
+          <text x={x(d) + COL_W / 2} y={37} textAnchor="middle" className="num fill-zinc-700 text-[11px] font-semibold">
             {dayOfMonth(d)}
           </text>
         </g>
@@ -42,29 +43,28 @@ function BargeTimeline({ t }: { t: Timeline }) {
         const y = HEAD_H + i * ROW_H
         return (
           <g key={b.bargeId}>
-            <text x={0} y={y + 10} className="fill-zinc-800 text-[8px] font-medium">
+            <text x={0} y={y + 18} className="fill-zinc-800 text-[11px] font-semibold">
               {b.bargeName.replace('Corvana ', '')}
             </text>
-            <text x={0} y={y + 19} className="num fill-zinc-400 text-[7px]">
+            <text x={0} y={y + 30} className="num fill-zinc-400 text-[9px]">
               {mt(b.capacityMt)}
             </text>
             {b.freeDays.map((d) => (
-              <rect key={d} x={x(d) + 1.5} y={y + 3} width={COL_W - 3} height={ROW_H - 6} rx={2} className="fill-emerald-100" />
+              <rect key={d} x={x(d) + 2} y={y + 4} width={COL_W - 4} height={ROW_H - 8} rx={5} className="fill-emerald-100" />
             ))}
             {b.slots.map((s) => (
-              <rect key={s.slotId} x={x(s.start.slice(0, 10)) + 1.5} y={y + 3} width={COL_W - 3} height={ROW_H - 6} rx={2} className="fill-zinc-300">
+              <rect key={s.slotId} x={x(s.start.slice(0, 10)) + 2} y={y + 4} width={COL_W - 4} height={ROW_H - 8} rx={5} className="fill-zinc-300">
                 <title>
                   Booked {dateTime(s.start)}–{s.end.slice(11, 16)} ({s.dealId})
                 </title>
               </rect>
             ))}
-            <line x1={LABEL_W} x2={width} y1={y + ROW_H} y2={y + ROW_H} className="stroke-zinc-100" />
           </g>
         )
       })}
-      <line x1={etaX} x2={etaX} y1={HEAD_H - 2} y2={height} strokeWidth={1.2} strokeDasharray="2 1.5" className={t.etaAfterWindowStart ? 'stroke-amber-500' : 'stroke-zinc-700'} />
-      <text x={Math.min(etaX + 2, width - 14)} y={height - 3} className={`text-[7px] font-semibold ${t.etaAfterWindowStart ? 'fill-amber-600' : 'fill-zinc-700'}`}>
-        ETA
+      <line x1={etaX} x2={etaX} y1={HEAD_H - 2} y2={height - 14} strokeWidth={1.5} strokeDasharray="3 2" className={late ? 'stroke-amber-600' : 'stroke-zinc-600'} />
+      <text x={Math.max(LABEL_W, Math.min(etaX, width - 30))} y={height - 3} textAnchor={etaX > width - 30 ? 'end' : 'middle'} className={`text-[9px] font-semibold ${late ? 'fill-amber-600' : 'fill-zinc-600'}`}>
+        ETA {t.vesselEta.slice(11, 16)}
       </text>
     </svg>
   )
