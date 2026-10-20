@@ -1,28 +1,56 @@
 import { usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
+import { termsParams, type Terms } from './terms'
 import { Card, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
-/** Premium axis with the won p25–p75 band, the lowest lost premium and the suggested premium. Stage 5 turns this into the slider track. */
-export function WinRangeBar({ w, suggested }: { w: WinRange; suggested: number | null }) {
-  const lo = 0
-  const hi = 22
-  const x = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`
+const MIN = 0
+const MAX = 25
+const STEP = 0.5
+const THUMB = 18 // px; the track is inset by half a thumb so marks line up with the thumb centre
+
+/**
+ * Quote builder: the premium slider. Its track shows the win range on similar deals
+ * (won p25–p75 band, lowest lost premium, n) and a tick at the suggested premium.
+ */
+function PremiumSlider({ w, suggested, value, onChange }: { w: WinRange | null; suggested: number; value: number; onChange: (v: number) => void }) {
+  const x = (v: number) => `${((Math.min(Math.max(v, MIN), MAX) - MIN) / (MAX - MIN)) * 100}%`
   return (
-    <div className="relative mt-6 mb-6 h-1.5 rounded-full bg-zinc-100">
-      {w.wonP25 !== null && w.wonP75 !== null && (
-        <div className="absolute inset-y-0 rounded-full bg-emerald-300" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
-      )}
-      {w.lowestLost !== null && (
-        <div className="absolute -top-1 h-3.5 w-0.5 rounded bg-red-400" style={{ left: x(w.lowestLost) }}>
-          <span className="num absolute top-4 left-1/2 -translate-x-1/2 text-[10px] whitespace-nowrap text-red-500">lost {usdMt(w.lowestLost)}</span>
+    <div>
+      <div className="relative">
+        <div className="pointer-events-none absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-zinc-200" style={{ left: THUMB / 2, right: THUMB / 2 }}>
+          {w?.wonP25 != null && w.wonP75 != null && (
+            <div className="absolute inset-y-0 rounded-full bg-emerald-300" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
+          )}
+          {w?.lowestLost != null && <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded bg-red-400" style={{ left: x(w.lowestLost) }} />}
+          <div className="absolute -top-1.5 h-[18px] w-0.5 -translate-x-1/2 rounded bg-indigo-300" style={{ left: x(suggested) }} title={`Suggested ${usdMt(suggested)}`} />
         </div>
-      )}
-      {suggested !== null && (
-        <div className="absolute -top-[5px] size-4 -translate-x-1/2 rounded-full border-[3px] border-white bg-indigo-600 shadow" style={{ left: x(suggested) }}>
-          <span className="num absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap text-indigo-600">{usdMt(suggested)}</span>
+        <input
+          type="range"
+          min={MIN}
+          max={MAX}
+          step={STEP}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-label="Premium, $/mt"
+          className="premium-slider relative"
+        />
+      </div>
+      <div className="num mt-1 flex justify-between text-[10px] text-zinc-400">
+        <span>${MIN}</span>
+        <span>${MAX}</span>
+      </div>
+      {w && (
+        <div className="num mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-zinc-500">
+          <span className="inline-flex items-center gap-1">
+            <i className="inline-block h-1.5 w-3 rounded-full bg-emerald-300" /> won {w.wonP25 != null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <i className="inline-block h-2.5 w-0.5 rounded bg-red-400" /> lowest lost {w.lowestLost != null ? usdMt(w.lowestLost) : '—'}
+          </span>
+          <span>n = {w.n} similar quotes</span>
         </div>
       )}
     </div>
@@ -43,7 +71,19 @@ function DeltaChip({ r }: { r: QueryResult<number> }) {
 
 const VS = ({ children }: { children: string }) => <span className="mx-1 font-normal text-zinc-400">{children}</span>
 
-export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
+export function PricePanel({
+  enquiryId,
+  user,
+  terms,
+  editable,
+  onPremium,
+}: {
+  enquiryId: string
+  user: UserContext
+  terms: Terms
+  editable: boolean
+  onPremium: (premium: number) => void
+}) {
   const p = { enquiryId }
   const blocked = query('compliance_check', p, user).value === 'FLAG'
   const grade = query('enquiry_details', p, user).value?.gradeName
@@ -66,6 +106,7 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
     )
   }
 
+  const live = termsParams(enquiryId, terms)
   const custPrem = query('customer_avg_premium', p, user)
   const deskPrem = query('desk_avg_premium', p, user)
   const deals = query('customer_deal_count', p, user)
@@ -74,14 +115,15 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const win = query('win_range_similar', p, user)
   const breakdown = query('suggested_premium_breakdown', p, user).value
   const suggested = query('suggested_premium', p, user)
-  const price = query('quoted_price', p, user)
-  const margin = query('expected_deal_margin', p, user)
-  const marginMt = query('expected_margin_per_mt', p, user)
+  const price = query('quoted_price', live, user)
+  const margin = query('expected_deal_margin', live, user)
+  const marginMt = query('expected_margin_per_mt', live, user)
   const claimRatio = custClaim.value !== null && deskClaim.value ? custClaim.value / deskClaim.value : null
   const thinMargin = (marginMt.value ?? 0) < 3
-  const w = win.value
+  const offSuggestion = suggested.value !== null && terms.premium !== suggested.value
+  const diff = suggested.value === null ? 0 : terms.premium - suggested.value
 
-  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt` }
+  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
@@ -101,6 +143,27 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
         <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
         <span className="ml-1 text-sm font-medium text-zinc-400">/mt</span>
       </Hero>
+
+      {/* Quote builder */}
+      <div className="rounded-xl bg-zinc-50 px-3 pt-2.5 pb-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs text-zinc-500">Your premium</span>
+          <span className="num">
+            <span className="text-[15px] font-semibold text-zinc-900">{usdMt(terms.premium)}</span>
+            <span className="text-xs text-zinc-400">/mt</span>
+            {offSuggestion && editable && (
+              <button type="button" onClick={() => onPremium(suggested.value!)} className="ml-2 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
+                {diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(2)} · reset
+              </button>
+            )}
+          </span>
+        </div>
+        {editable ? (
+          <PremiumSlider w={win.value} suggested={suggested.value ?? 0} value={terms.premium} onChange={onPremium} />
+        ) : (
+          <p className="mt-1 text-[11px] text-zinc-500">Response sent; terms are locked.</p>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-2">
         <Tile label="Quoted price">
@@ -127,19 +190,6 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
           <MetricValue r={deskClaim} className="font-normal text-zinc-500" />
         </ListRow>
       </List>
-
-      {w && (
-        <div>
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-[11px] font-medium text-zinc-400">Win range on similar deals</h3>
-            <span className="num text-[11px] text-zinc-400">n = {w.n}</span>
-          </div>
-          <WinRangeBar w={w} suggested={suggested.value} />
-          <div className="num text-[11px] text-zinc-500">
-            Won {w.wonP25 !== null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'} (p25–p75 of {w.nWon} wins)
-          </div>
-        </div>
-      )}
     </Card>
   )
 }

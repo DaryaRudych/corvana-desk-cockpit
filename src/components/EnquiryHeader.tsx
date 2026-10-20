@@ -41,11 +41,18 @@ export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: Us
         </div>
       </div>
 
-      {/* Deadline */}
-      <div className={`flex w-40 shrink-0 flex-col items-center justify-center ${urgent ? 'bg-red-50 text-red-600' : 'bg-zinc-50 text-zinc-800'}`}>
-        <div className="text-xs opacity-70">Quote due in</div>
-        <MetricValue r={due} className="text-[28px] font-semibold tracking-tight" format={(m: number) => duration(m)} />
-      </div>
+      {/* Deadline, or the response once sent */}
+      {e.status === 'open' ? (
+        <div className={`flex w-40 shrink-0 flex-col items-center justify-center ${urgent ? 'bg-red-50 text-red-600' : 'bg-zinc-50 text-zinc-800'}`}>
+          <div className="text-xs opacity-70">Quote due in</div>
+          <MetricValue r={due} className="text-[28px] font-semibold tracking-tight" format={(m: number) => duration(m)} />
+        </div>
+      ) : (
+        <div className="flex w-40 shrink-0 flex-col items-center justify-center bg-emerald-50 text-emerald-700">
+          <div className="text-xs opacity-70">Response sent</div>
+          <div className="text-xl font-semibold capitalize">{e.status}</div>
+        </div>
+      )}
     </header>
   )
 }
