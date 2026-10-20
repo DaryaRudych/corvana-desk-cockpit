@@ -1,0 +1,12 @@
+[
+{"barge_id":"BRG-AH-1","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Tern","capacity_mt":5000,"grades_supported":["GRD_VLSFO","GRD_HSFO"]},
+{"barge_id":"BRG-AH-2","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Plover","capacity_mt":3500,"grades_supported":["GRD_VLSFO","GRD_MGO"]},
+{"barge_id":"BRG-AH-3","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Gannet","capacity_mt":3000,"grades_supported":["GRD_VLSFO","GRD_HSFO"]},
+{"barge_id":"BRG-AH-4","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Petrel","capacity_mt":2500,"grades_supported":["GRD_MGO"]},
+{"barge_id":"BRG-AH-5","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Skua","capacity_mt":2000,"grades_supported":["GRD_VLSFO"]},
+{"barge_id":"BRG-AH-6","desk_id":"DESK_ASIA_HUB","barge_name":"Corvana Auk","capacity_mt":1200,"grades_supported":["GRD_VLSFO","GRD_MGO"]},
+{"barge_id":"BRG-RB-1","desk_id":"DESK_ROTTERDAM","barge_name":"Corvana Fulmar","capacity_mt":4500,"grades_supported":["GRD_VLSFO","GRD_HSFO"]},
+{"barge_id":"BRG-RB-2","desk_id":"DESK_ROTTERDAM","barge_name":"Corvana Shag","capacity_mt":3000,"grades_supported":["GRD_VLSFO","GRD_MGO"]},
+{"barge_id":"BRG-RB-3","desk_id":"DESK_ROTTERDAM","barge_name":"Corvana Eider","capacity_mt":2500,"grades_supported":["GRD_VLSFO","GRD_HSFO"]},
+{"barge_id":"BRG-RB-4","desk_id":"DESK_ROTTERDAM","barge_name":"Corvana Murre","capacity_mt":1500,"grades_supported":["GRD_MGO"]}
+]
