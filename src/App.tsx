@@ -11,8 +11,8 @@ import { AS_OF, TRADER, query, userLabel } from './semantic/query'
 
 function Placeholder({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 bg-white/60 px-3 py-2 text-xs text-zinc-500">
-      <span className="mr-2 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">{label}</span>
+    <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-2.5 text-xs text-zinc-500">
+      <span className="mr-2 font-semibold text-zinc-600">{label}</span>
       {children}
     </div>
   )
@@ -45,12 +45,12 @@ export default function App() {
         <Queue rows={queue} selectedId={selectedId} onSelect={setSelectedId} />
         <main className="min-w-0 flex-1 overflow-y-auto">
           {selectedId ? (
-            <div key={selectedId} className="mx-auto flex max-w-[1240px] flex-col gap-3 p-4">
+            <div key={selectedId} className="mx-auto flex max-w-[1240px] flex-col gap-4 p-5">
               <EnquiryHeader enquiryId={selectedId} user={user} />
               <Placeholder label="AI enquiry brief">
                 Arrives in stage 6. Rule-based suggested move for this enquiry: <b className="text-zinc-700">{move?.move}</b>
               </Placeholder>
-              <div className="grid grid-cols-3 items-stretch gap-3">
+              <div className="grid grid-cols-3 items-stretch gap-4">
                 <SafePanel enquiryId={selectedId} user={user} />
                 <DeliverablePanel enquiryId={selectedId} user={user} />
                 <PricePanel enquiryId={selectedId} user={user} />

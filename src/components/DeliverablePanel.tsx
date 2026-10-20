@@ -1,8 +1,8 @@
-import { dateTime, dayOfMonth, hourOfDay, mt, weekdayLetter } from '../lib/format'
+import { dateTime, day, dayOfMonth, hourOfDay, mt, weekdayLetter } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type UserContext } from '../semantic/query'
 import { AlertIcon } from './Icons'
-import { MetricValue, Panel, Row, SectionLabel, type Verdict } from './ui'
+import { Card, MetricValue, Tile, type Verdict } from './ui'
 
 type Timeline = ValueOf<'barge_timeline'>
 
@@ -24,7 +24,7 @@ function BargeTimeline({ t }: { t: Timeline }) {
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Barge timeline">
-      <rect x={winX} y={0} width={winW} height={height} className="fill-indigo-50" />
+      <rect x={winX} y={0} width={winW} height={height} rx={4} className="fill-indigo-50" />
       <text x={winX + winW / 2} y={8} textAnchor="middle" className="fill-indigo-700 text-[7px] font-semibold">
         WINDOW
       </text>
@@ -49,7 +49,7 @@ function BargeTimeline({ t }: { t: Timeline }) {
               {mt(b.capacityMt)}
             </text>
             {b.freeDays.map((d) => (
-              <rect key={d} x={x(d) + 1.5} y={y + 3} width={COL_W - 3} height={ROW_H - 6} rx={2} className="fill-emerald-100 stroke-emerald-500" strokeWidth={0.6} />
+              <rect key={d} x={x(d) + 1.5} y={y + 3} width={COL_W - 3} height={ROW_H - 6} rx={2} className="fill-emerald-100" />
             ))}
             {b.slots.map((s) => (
               <rect key={s.slotId} x={x(s.start.slice(0, 10)) + 1.5} y={y + 3} width={COL_W - 3} height={ROW_H - 6} rx={2} className="fill-zinc-300">
@@ -89,42 +89,43 @@ export function DeliverablePanel({ enquiryId, user }: { enquiryId: string; user:
         : { tone: 'ok', label: 'Barge available' }
 
   return (
-    <Panel step={2} title="Can we deliver?" subtitle="Barges, vessel ETA and stock" verdict={verdict}>
-      <div className="flex flex-col gap-1.5">
-        <SectionLabel>Barge schedule · window ± 3 days</SectionLabel>
-        {t && t.barges.length > 0 ? (
-          <div>
-            <BargeTimeline t={t} />
-            <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-zinc-500">
+    <Card step={2} title="Can we deliver?" subtitle="Barges, vessel ETA and stock" verdict={verdict}>
+      {t && t.barges.length > 0 ? (
+        <div>
+          <div className="mb-1 flex items-baseline justify-between text-[11px] text-zinc-400">
+            <span>
+              Barges for {details?.gradeName} ≥ {mt(qty)}
+            </span>
+            <span className="flex gap-3">
               <span className="inline-flex items-center gap-1">
                 <i className="inline-block size-2 rounded-sm bg-zinc-300" /> booked
               </span>
               <span className="inline-flex items-center gap-1">
-                <i className="inline-block size-2 rounded-sm border border-emerald-500 bg-emerald-100" /> free
+                <i className="inline-block size-2 rounded-sm bg-emerald-200" /> free
               </span>
-              <span>
-                Barges for {details?.gradeName} ≥ {mt(qty)}
-              </span>
-            </div>
+            </span>
           </div>
-        ) : (
-          <p className="text-xs text-zinc-500">No barge on this desk supports {details?.gradeName} at this quantity.</p>
-        )}
-        {t?.etaAfterWindowStart && (
-          <div className="flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-            <AlertIcon /> Vessel ETA {dateTime(t.vesselEta)} is after the window starts.
-          </div>
-        )}
-      </div>
-      <div className="flex flex-col gap-1 border-t border-zinc-100 pt-3">
-        <SectionLabel>Stock</SectionLabel>
-        <Row label={`${details?.gradeName} in stock`}>
+          <BargeTimeline t={t} />
+        </div>
+      ) : (
+        <p className="rounded-xl bg-zinc-50 p-3 text-xs text-zinc-500">No barge on this desk supports {details?.gradeName} at this quantity.</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <Tile label={`${details?.gradeName ?? ''} in stock`} sub={`needs ${mt(qty)}`} subTone={stockOk ? 'neutral' : 'bad'}>
           <MetricValue r={stock} className={stockOk ? '' : 'text-red-600'} />
-        </Row>
-        <Row label="Needed for this enquiry">
-          <span className="num">{mt(qty)}</span>
-        </Row>
+        </Tile>
+        <Tile
+          label="Vessel ETA"
+          sub={t && `${t.vesselEta.slice(11, 16)} · ${t.etaAfterWindowStart ? 'after window opens' : 'in time for window'}`}
+          subTone={t?.etaAfterWindowStart ? 'warn' : 'neutral'}
+        >
+          <span className={`inline-flex items-center gap-1 ${t?.etaAfterWindowStart ? 'text-amber-600' : ''}`}>
+            {t ? day(t.vesselEta.slice(0, 10)) : '—'}
+            {t?.etaAfterWindowStart && <AlertIcon className="size-3" />}
+          </span>
+        </Tile>
       </div>
-    </Panel>
+    </Card>
   )
 }

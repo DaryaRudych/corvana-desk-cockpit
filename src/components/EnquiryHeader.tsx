@@ -1,7 +1,7 @@
 import { dateRange, dateTime, duration, mt } from '../lib/format'
 import { query, type UserContext } from '../semantic/query'
 import { AlertIcon } from './Icons'
-import { Fact, MetricValue } from './ui'
+import { CARD, Fact, MetricValue } from './ui'
 
 export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
   const p = { enquiryId }
@@ -12,8 +12,8 @@ export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: Us
   const urgent = (due.value ?? 0) < 60
 
   return (
-    <header className="flex overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-      <div className="min-w-0 flex-1 px-5 py-3.5">
+    <header className={`flex overflow-hidden ${CARD}`}>
+      <div className="min-w-0 flex-1 px-5 py-4">
         {/* Who and what */}
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="truncate text-xl font-semibold tracking-tight text-zinc-900">{e.customerName}</h1>
@@ -42,9 +42,9 @@ export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: Us
       </div>
 
       {/* Deadline */}
-      <div className={`flex w-40 shrink-0 flex-col items-center justify-center border-l ${urgent ? 'border-red-100 bg-red-50 text-red-700' : 'border-zinc-100 bg-zinc-50 text-zinc-800'}`}>
-        <div className="text-[10px] font-semibold tracking-wider uppercase opacity-70">Quote due in</div>
-        <MetricValue r={due} className="text-2xl font-semibold" format={(m: number) => duration(m)} />
+      <div className={`flex w-40 shrink-0 flex-col items-center justify-center ${urgent ? 'bg-red-50 text-red-600' : 'bg-zinc-50 text-zinc-800'}`}>
+        <div className="text-xs opacity-70">Quote due in</div>
+        <MetricValue r={due} className="text-[28px] font-semibold tracking-tight" format={(m: number) => duration(m)} />
       </div>
     </header>
   )
