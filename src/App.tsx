@@ -1,4 +1,6 @@
 import { useCallback, useState, useSyncExternalStore } from 'react'
+import { ask } from './ai/ask'
+import { AskDrawer, type Turn } from './components/AskBox'
 import { EnquiryWorkspace } from './components/EnquiryWorkspace'
 import { GovernanceDrawer, type DrawerTab } from './components/GovernanceDrawer'
 import { LockIcon } from './components/Icons'
@@ -18,6 +20,18 @@ export default function App() {
   const clearToast = useCallback(() => setToast(null), [])
   const [drawer, setDrawer] = useState<DrawerTab | null>(null)
   const closeDrawer = useCallback(() => setDrawer(null), [])
+
+  // Ask: one thread per enquiry, kept for the session.
+  const [threads, setThreads] = useState<Record<string, Turn[]>>({})
+  const thread = selectedId ? (threads[selectedId] ?? []) : []
+  const onAsk = (question: string) => {
+    if (!selectedId) return
+    const turn = { question, answer: ask(question, selectedId, user) }
+    setThreads((t) => ({ ...t, [selectedId]: [...(t[selectedId] ?? []), turn] }))
+  }
+  const [askDrawerOpen, setAskDrawerOpen] = useState(false)
+  const closeAskDrawer = useCallback(() => setAskDrawerOpen(false), [])
+  const customer = selectedId ? (query('enquiry_details', { enquiryId: selectedId }, user).value?.customerName ?? '') : ''
 
   return (
     <MetricCardProvider user={user}>
@@ -46,12 +60,20 @@ export default function App() {
           <Queue rows={queue} selectedId={selectedId} onSelect={setSelectedId} />
           <main className="min-w-0 flex-1 overflow-y-auto">
             {selectedId ? (
-              <EnquiryWorkspace key={selectedId} enquiryId={selectedId} user={user} onSent={setToast} />
+              <EnquiryWorkspace
+                key={selectedId}
+                enquiryId={selectedId}
+                user={user}
+                onSent={setToast}
+                askCount={thread.length}
+                onOpenAsk={() => setAskDrawerOpen(true)}
+              />
             ) : (
               <p className="p-8 text-zinc-500">No open enquiries.</p>
             )}
           </main>
         </div>
+        {askDrawerOpen && selectedId && <AskDrawer customer={customer} thread={thread} onAsk={onAsk} onClose={closeAskDrawer} />}
         {toast && <Toast message={toast} onDone={clearToast} />}
         {drawer && <GovernanceDrawer user={user} tab={drawer} onTab={setDrawer} onClose={closeDrawer} />}
       </div>

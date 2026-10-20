@@ -5,7 +5,7 @@ import { draftMessage } from '../ai/draft'
 import { day, mt, usdMt } from '../lib/format'
 import { submitResponse, type TraderResponse } from '../semantic/actions'
 import { query, type UserContext } from '../semantic/query'
-import { AiBadge, BasedOn } from './ai'
+import { AiMark, BasedOn } from './ai'
 import { CARD } from './ui'
 
 const TITLES = { quote: 'Send quote', counter: 'Send counter-offer', decline: 'Send decline' } as const
@@ -84,7 +84,7 @@ export function DraftMessageModal({ response, user, onCancel, onSent }: { respon
 
           <label className="flex flex-col gap-1.5">
             <span className="flex items-center gap-2 text-xs text-zinc-500">
-              <AiBadge label="AI draft" /> Message to the customer, drafted from the terms above. Edit before sending.
+              <AiMark className="size-3" /> Message to the customer, drafted from the terms above. Edit before sending.
               {message !== draft.text && (
                 <button type="button" onClick={() => setMessage(draft.text)} className="ml-auto font-medium text-indigo-600 hover:text-indigo-800">
                   Restore draft

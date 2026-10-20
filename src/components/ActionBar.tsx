@@ -6,9 +6,12 @@ import { query, type UserContext } from '../semantic/query'
 import { applyOption, optionLabel, termsParams, type Mode, type Terms } from './terms'
 import { CARD, MetricValue, Pill } from './ui'
 
-const BUTTON = 'rounded-full px-6 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40'
-const PRIMARY = `${BUTTON} bg-indigo-600 text-white hover:bg-indigo-700`
-const SECONDARY = `${BUTTON} bg-zinc-100 text-zinc-800 hover:bg-zinc-200`
+// Pills: solid primary, thin-outlined alternatives (clearly clickable, not flat boxes).
+const BUTTON =
+  'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:pointer-events-none disabled:opacity-40'
+const PRIMARY = `${BUTTON} bg-indigo-600 text-white shadow-[0_2px_8px_rgba(79,70,229,0.28)] hover:bg-indigo-700`
+const OUTLINE = `${BUTTON} border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50`
+const SECONDARY = 'shrink-0 rounded-full px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
 const INPUT = 'num rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm text-zinc-900 focus:border-indigo-400 focus:outline-none'
 
 const MOVE_REASON_TO_DECLINE: Record<SuggestedMove['reason'], DeclineReason> = {
@@ -207,7 +210,10 @@ export function ActionBar({
   const e = query('enquiry_details', { enquiryId }, user).value!
   const move = query('suggested_move', { enquiryId }, user).value
   const blocked = move?.move === 'BLOCKED'
-  const suggested = (m: Move) => move?.move === m && <Pill tone="accent" className="ml-1.5 bg-white/20 px-1.5 py-0 text-[10px] text-inherit">Suggested</Pill>
+  const recTag = (m: Move, onPrimary = false) =>
+    move?.move === m && (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${onPrimary ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'}`}>Recommended</span>
+    )
 
   if (e.status !== 'open') {
     return (
@@ -223,7 +229,7 @@ export function ActionBar({
   }
 
   return (
-    <div className={`px-5 py-4 ${CARD}`}>
+    <div className={`px-5 py-4 ${CARD} shadow-[0_4px_24px_rgba(16,24,40,0.10)]`}>
       {mode === 'review' && (
         <div className="flex items-center gap-2">
           <button
@@ -233,17 +239,17 @@ export function ActionBar({
             className={PRIMARY}
           >
             {blocked ? 'Quote' : `Quote at ${usdMt(terms.premium)}`}
-            {suggested('QUOTE')}
+            {recTag('QUOTE', true)}
           </button>
-          <button type="button" disabled={blocked} onClick={() => onMode('counter')} className={SECONDARY}>
+          <button type="button" disabled={blocked} onClick={() => onMode('counter')} className={OUTLINE}>
             Counter
-            {suggested('COUNTER')}
+            {recTag('COUNTER')}
           </button>
-          <button type="button" disabled={blocked} onClick={() => onMode('decline')} className={SECONDARY}>
+          <button type="button" disabled={blocked} onClick={() => onMode('decline')} className={OUTLINE}>
             Decline
-            {suggested('DECLINE')}
+            {recTag('DECLINE')}
           </button>
-          <span className="ml-auto text-xs text-zinc-400">
+          <span className="ml-auto min-w-0 text-right text-xs text-zinc-400">
             {blocked ? 'Refer to compliance. No price and no response from the cockpit.' : 'Nothing is sent until you review the message and click Send.'}
           </span>
         </div>

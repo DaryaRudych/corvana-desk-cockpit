@@ -27,7 +27,7 @@ export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: Us
         </p>
 
         {/* The ask */}
-        <div className="mt-3 grid grid-cols-[auto_auto_auto_auto_1fr] gap-x-8 border-t border-zinc-100 pt-3">
+        <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2 border-t border-zinc-100 pt-3">
           <Fact label="Grade">{e.gradeName}</Fact>
           <Fact label="Quantity">{mt(e.quantity_mt)}</Fact>
           <Fact label="Delivery window">{dateRange(e.window_start, e.window_end)}</Fact>
