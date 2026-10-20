@@ -47,6 +47,9 @@ export function restrictedMessage(ownerBusinessUnitIds: string[], ctx: UserConte
   return `That data belongs to ${owners} and isn't available to ${userLabel(ctx)}.`
 }
 
+/** Org structure is group-shared: every user may know which business units exist. */
+export const listBusinessUnits = () => WAREHOUSE.dim_business_unit.map((b) => ({ id: b.business_unit_id, name: b.business_unit_name }))
+
 export const otherBusinessUnits = (ctx: UserContext) =>
   WAREHOUSE.dim_business_unit.map((b) => b.business_unit_id).filter((id) => id !== ctx.businessUnit)
 
