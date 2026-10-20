@@ -6,7 +6,7 @@ import { query, type UserContext } from '../semantic/query'
 import { applyOption, optionLabel, termsParams, type Mode, type Terms } from './terms'
 import { CARD, MetricValue, Pill } from './ui'
 
-const BUTTON = 'rounded-full px-6 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40'
+const BUTTON = 'shrink-0 whitespace-nowrap rounded-full px-6 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40'
 const PRIMARY = `${BUTTON} bg-indigo-600 text-white hover:bg-indigo-700`
 const SECONDARY = `${BUTTON} bg-zinc-100 text-zinc-800 hover:bg-zinc-200`
 const INPUT = 'num rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm text-zinc-900 focus:border-indigo-400 focus:outline-none'
@@ -243,7 +243,7 @@ export function ActionBar({
             Decline
             {suggested('DECLINE')}
           </button>
-          <span className="ml-auto text-xs text-zinc-400">
+          <span className="ml-auto min-w-0 text-right text-xs text-zinc-400">
             {blocked ? 'Refer to compliance. No price and no response from the cockpit.' : 'Nothing is sent until you review the message and click Send.'}
           </span>
         </div>

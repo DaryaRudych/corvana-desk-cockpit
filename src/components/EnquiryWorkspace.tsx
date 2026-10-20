@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { TraderResponse } from '../semantic/actions'
 import { query, type UserContext } from '../semantic/query'
 import { ActionBar } from './ActionBar'
-import { AskBox } from './AskBox'
+import { AskButton, AskInline, type AskPlacement, type Turn } from './AskBox'
 import { DeliverablePanel } from './DeliverablePanel'
 import { DraftMessageModal } from './DraftMessageModal'
 import { EnquiryBrief } from './EnquiryBrief'
@@ -13,7 +13,23 @@ import { PricePanel } from './PricePanel'
 import { SafePanel } from './SafePanel'
 import { applyOption, type Mode, type Terms } from './terms'
 
-export function EnquiryWorkspace({ enquiryId, user, onSent }: { enquiryId: string; user: UserContext; onSent: (message: string) => void }) {
+export function EnquiryWorkspace({
+  enquiryId,
+  user,
+  onSent,
+  askPlacement,
+  thread,
+  onAsk,
+  onOpenAsk,
+}: {
+  enquiryId: string
+  user: UserContext
+  onSent: (message: string) => void
+  askPlacement: AskPlacement
+  thread: Turn[]
+  onAsk: (q: string) => void
+  onOpenAsk: () => void
+}) {
   const e = query('enquiry_details', { enquiryId }, user).value!
   const move = query('suggested_move', { enquiryId }, user).value
   const suggestedPremium = query('suggested_premium', { enquiryId }, user).value ?? 0
@@ -45,13 +61,13 @@ export function EnquiryWorkspace({ enquiryId, user, onSent }: { enquiryId: strin
   return (
     <div className="mx-auto flex max-w-[1240px] flex-col gap-4 p-5">
       <EnquiryHeader enquiryId={enquiryId} user={user} />
-      <EnquiryBrief enquiryId={enquiryId} user={user} />
-      <div className="grid grid-cols-3 items-stretch gap-4">
+      <EnquiryBrief enquiryId={enquiryId} user={user} aside={askPlacement === 'drawer' && <AskButton count={thread.length} onClick={onOpenAsk} />} />
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(270px,1fr))] items-stretch gap-4">
         <SafePanel enquiryId={enquiryId} user={user} terms={terms} />
         <DeliverablePanel enquiryId={enquiryId} user={user} />
         <PricePanel enquiryId={enquiryId} user={user} terms={terms} editable={open} onPremium={(premium) => setTerms({ ...terms, premium })} />
       </div>
-      <AskBox enquiryId={enquiryId} user={user} />
+      {askPlacement === 'inline' && <AskInline customer={e.customerName} thread={thread} onAsk={onAsk} />}
       {/* The compact action row stays in reach while scrolling; the taller counter/decline forms sit in the flow. */}
       <div className={mode === 'review' ? 'sticky bottom-0 z-10 -mx-5 -mb-5 bg-gradient-to-t from-[#f2f3f5] from-70% px-5 pt-3 pb-5' : ''}>
         <ActionBar enquiryId={enquiryId} user={user} mode={mode} terms={terms} setTerms={setTerms} onMode={changeMode} onReview={setDraft} />
