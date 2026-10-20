@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { query, type UserContext } from '../semantic/query'
+import { businessUnitName, query, type QueryResult, type UserContext } from '../semantic/query'
 import { AlertIcon, ChevronIcon } from './Icons'
-import { DetailRestricted, MetricValue, Panel, Pill, Row } from './ui'
+import { Card, DetailRestricted, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
-function StatusPill({ status }: { status: string | null }) {
-  if (status === null) return <span className="text-zinc-400">—</span>
-  return <Pill tone={status === 'PASS' ? 'ok' : 'bad'}>{status}</Pill>
+function Check({ label, r }: { label: string; r: QueryResult<'PASS' | 'FLAG'> }) {
+  const flag = r.value === 'FLAG'
+  return (
+    <Tile label={label}>
+      <span className={`inline-flex items-center gap-1.5 ${flag ? 'text-red-600' : 'text-emerald-600'}`}>
+        <span className={`size-2 rounded-full ${flag ? 'bg-red-500' : 'bg-emerald-500'}`} />
+        {flag ? 'Flag' : r.value === 'PASS' ? 'Pass' : '—'}
+      </span>
+    </Tile>
+  )
 }
 
 export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
@@ -26,67 +33,79 @@ export function SafePanel({ enquiryId, user }: { enquiryId: string; user: UserCo
   const dpd = query('days_past_due', p, user)
   const negative = (after.value ?? 0) < 0
 
+  const verdict: Verdict = blocked
+    ? { tone: 'bad', label: 'Blocked: compliance' }
+    : negative
+      ? { tone: 'bad', label: 'Over credit limit' }
+      : { tone: 'ok', label: 'Clear to trade' }
+
   return (
-    <Panel step={1} title="Safe?">
-      <div className="flex flex-col gap-1.5">
-        <Row label="Customer KYC">
-          <StatusPill status={kyc.value} />
-        </Row>
-        {kycDetail.value && <p className="text-xs text-zinc-500">{kycDetail.value}</p>}
-        <Row label="Vessel screening">
-          <StatusPill status={screening.value} />
-        </Row>
-        {screeningDetail.value && <p className="text-xs text-zinc-500">{screeningDetail.value}</p>}
+    <Card title="Compliance & Credit" verdict={verdict}>
+      <div className="grid grid-cols-2 gap-2">
+        <Check label="Customer KYC" r={kyc} />
+        <Check label="Vessel screening" r={screening} />
       </div>
+      {(kycDetail.value || screeningDetail.value) && (
+        <div className="flex flex-col gap-1 text-xs text-zinc-500">
+          {kycDetail.value && <p>KYC: {kycDetail.value}</p>}
+          {screeningDetail.value && <p>Screening: {screeningDetail.value}</p>}
+        </div>
+      )}
 
       {blocked ? (
-        <div className="flex gap-2 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800">
-          <AlertIcon className="mt-px size-3.5 shrink-0" />
+        <div className="flex gap-2.5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+          <AlertIcon className="mt-0.5 size-4 shrink-0" />
           <span>
             <b>Refer to compliance.</b> A compliance check is flagged, so this enquiry can't be priced or answered from the cockpit.
           </span>
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5 border-t border-zinc-100 pt-3">
-          <div className="text-xs text-zinc-500">Credit headroom after this deal</div>
-          <MetricValue r={after} className={`text-xl font-semibold ${negative ? 'text-red-600' : 'text-emerald-700'}`} />
-          {negative && <Pill tone="bad" className="self-start">Breaches group credit limit</Pill>}
-          <button type="button" onClick={() => setOpen(!open)} className="mt-1 inline-flex items-center gap-1 self-start text-xs font-medium text-indigo-700 hover:text-indigo-900">
-            <ChevronIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
-            {open ? 'Hide breakdown' : 'Show breakdown'}
-          </button>
-          {open && (
-            <div className="flex flex-col gap-1 rounded bg-zinc-50 p-2 text-xs">
-              <Row label="Group credit limit">
-                <MetricValue r={limit} />
-              </Row>
-              <Row label="Group exposure">
-                <MetricValue r={exposure} />
-              </Row>
-              <Row sub label="↳ Asia Bunkering (own BU)">
-                <MetricValue r={own} />
-              </Row>
-              <Row
-                sub
-                label={
-                  <span className="flex flex-col">
-                    ↳ Other BUs
-                    {other.restricted && <DetailRestricted message={other.restricted} />}
-                  </span>
-                }
-              >
-                <MetricValue r={other} />
-              </Row>
-              <Row label="Headroom before this deal">
-                <MetricValue r={before} />
-              </Row>
-              <Row label="Avg days past due (12m)">
-                <MetricValue r={dpd} className={(dpd.value ?? 0) > 3 ? 'text-amber-700' : ''} />
-              </Row>
-            </div>
-          )}
-        </div>
+        <>
+          <Hero
+            label="Credit headroom after this deal"
+            tone={negative ? 'bad' : 'ok'}
+            caption={
+              <>
+                Group limit <MetricValue r={limit} className="font-medium text-zinc-700" />
+                {negative && ' · this deal breaches it'}
+              </>
+            }
+          >
+            <MetricValue r={after} />
+          </Hero>
+
+          <List>
+            <ListRow label="Group exposure today">
+              <MetricValue r={exposure} />
+            </ListRow>
+            <ListRow label="Headroom before this deal">
+              <MetricValue r={before} />
+            </ListRow>
+          </List>
+
+          <div>
+            <button type="button" onClick={() => setOpen(!open)} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+              <ChevronIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
+              {open ? 'Hide exposure breakdown' : 'Show exposure breakdown'}
+            </button>
+            {open && (
+              <div className="mt-2 rounded-xl bg-zinc-50 px-3 py-1">
+                <List>
+                  <ListRow label={`${businessUnitName(user.businessUnit)} (own BU)`}>
+                    <MetricValue r={own} />
+                  </ListRow>
+                  <ListRow label="Other BUs" hint={other.restricted && <DetailRestricted message={other.restricted} />}>
+                    <MetricValue r={other} />
+                  </ListRow>
+                  <ListRow label="Avg days past due, 12m">
+                    <MetricValue r={dpd} className={(dpd.value ?? 0) > 3 ? 'text-amber-600' : ''} />
+                  </ListRow>
+                </List>
+              </div>
+            )}
+          </div>
+        </>
       )}
-    </Panel>
+    </Card>
   )
 }

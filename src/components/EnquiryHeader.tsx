@@ -1,7 +1,7 @@
 import { dateRange, dateTime, duration, mt } from '../lib/format'
 import { query, type UserContext } from '../semantic/query'
 import { AlertIcon } from './Icons'
-import { MetricValue, Pill } from './ui'
+import { CARD, Fact, MetricValue } from './ui'
 
 export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
   const p = { enquiryId }
@@ -12,42 +12,39 @@ export function EnquiryHeader({ enquiryId, user }: { enquiryId: string; user: Us
   const urgent = (due.value ?? 0) < 60
 
   return (
-    <header className="flex items-start justify-between gap-6 rounded-md border border-zinc-200 bg-white px-4 py-3">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2 text-base">
-          <span className="font-semibold text-zinc-900">{e.vesselName}</span>
-          <span className="num text-xs text-zinc-400">IMO {e.vessel_id}</span>
-          <span className="text-zinc-300">·</span>
-          <span className="font-semibold">{e.gradeName}</span>
-          <span className="text-zinc-300">·</span>
-          <span className="num font-semibold">{mt(e.quantity_mt)}</span>
-          <span className="text-zinc-300">·</span>
-          <span>{dateRange(e.window_start, e.window_end)}</span>
-          <span className="text-zinc-300">·</span>
-          <span className="font-semibold">{e.customerName}</span>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span>{e.port}</span>
-          <span className="inline-flex items-center gap-1">
-            ETA {dateTime(e.vessel_eta)}
-            {etaLate.value && (
-              <Pill tone="warn">
-                <AlertIcon className="size-2.5" /> after window start
-              </Pill>
-            )}
-          </span>
-          <span>{e.vesselType}</span>
-          <span>
-            {e.parentGroup} · {e.paymentTermsDays}-day terms
-          </span>
-          <span className="num text-zinc-400">
+    <header className={`flex overflow-hidden ${CARD}`}>
+      <div className="min-w-0 flex-1 px-5 py-4">
+        {/* Who and what */}
+        <div className="flex items-baseline justify-between gap-4">
+          <h1 className="truncate text-xl font-semibold tracking-tight text-zinc-900">{e.customerName}</h1>
+          <span className="num shrink-0 text-xs text-zinc-400">
             {e.enquiry_id} · received {dateTime(e.received_at)}
           </span>
         </div>
+        <p className="mt-0.5 text-sm text-zinc-500">
+          <span className="font-medium text-zinc-700">{e.vesselName}</span> · {e.vesselType} · <span className="num">IMO {e.vessel_id}</span> · {e.parentGroup} ·{' '}
+          {e.paymentTermsDays}-day terms
+        </p>
+
+        {/* The ask */}
+        <div className="mt-3 grid grid-cols-[auto_auto_auto_auto_1fr] gap-x-8 border-t border-zinc-100 pt-3">
+          <Fact label="Grade">{e.gradeName}</Fact>
+          <Fact label="Quantity">{mt(e.quantity_mt)}</Fact>
+          <Fact label="Delivery window">{dateRange(e.window_start, e.window_end)}</Fact>
+          <Fact label="Vessel ETA">
+            <span className={`inline-flex items-center gap-1 ${etaLate.value ? 'text-amber-700' : ''}`}>
+              {dateTime(e.vessel_eta)}
+              {etaLate.value && <AlertIcon className="size-3" />}
+            </span>
+          </Fact>
+          <Fact label="Port">{e.port}</Fact>
+        </div>
       </div>
-      <div className={`shrink-0 rounded-md px-3 py-1.5 text-right ${urgent ? 'bg-red-50 text-red-700' : 'bg-zinc-50 text-zinc-700'}`}>
-        <div className="text-[11px] tracking-wide uppercase opacity-70">Quote due in</div>
-        <MetricValue r={due} className="text-lg font-semibold" format={(m: number) => duration(m)} />
+
+      {/* Deadline */}
+      <div className={`flex w-40 shrink-0 flex-col items-center justify-center ${urgent ? 'bg-red-50 text-red-600' : 'bg-zinc-50 text-zinc-800'}`}>
+        <div className="text-xs opacity-70">Quote due in</div>
+        <MetricValue r={due} className="text-[28px] font-semibold tracking-tight" format={(m: number) => duration(m)} />
       </div>
     </header>
   )

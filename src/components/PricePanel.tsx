@@ -1,7 +1,7 @@
-import { signedUsdMt, usdMt } from '../lib/format'
+import { usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
-import { query, type UserContext } from '../semantic/query'
-import { MetricValue, Panel, Pill, Row } from './ui'
+import { query, type QueryResult, type UserContext } from '../semantic/query'
+import { Card, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -11,23 +11,37 @@ export function WinRangeBar({ w, suggested }: { w: WinRange; suggested: number |
   const hi = 22
   const x = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`
   return (
-    <div className="relative mt-5 mb-6 h-2 rounded-full bg-zinc-100">
+    <div className="relative mt-6 mb-6 h-1.5 rounded-full bg-zinc-100">
       {w.wonP25 !== null && w.wonP75 !== null && (
-        <div className="absolute inset-y-0 rounded-full bg-emerald-200" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
+        <div className="absolute inset-y-0 rounded-full bg-emerald-300" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
       )}
       {w.lowestLost !== null && (
-        <div className="absolute -top-1 h-4 w-px bg-red-500" style={{ left: x(w.lowestLost) }}>
-          <span className="num absolute top-4 left-1/2 -translate-x-1/2 text-[10px] whitespace-nowrap text-red-600">lost ${w.lowestLost}</span>
+        <div className="absolute -top-1 h-3.5 w-0.5 rounded bg-red-400" style={{ left: x(w.lowestLost) }}>
+          <span className="num absolute top-4 left-1/2 -translate-x-1/2 text-[10px] whitespace-nowrap text-red-500">lost {usdMt(w.lowestLost)}</span>
         </div>
       )}
       {suggested !== null && (
-        <div className="absolute -top-1 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" style={{ left: x(suggested) }}>
-          <span className="num absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap text-indigo-700">${suggested}</span>
+        <div className="absolute -top-[5px] size-4 -translate-x-1/2 rounded-full border-[3px] border-white bg-indigo-600 shadow" style={{ left: x(suggested) }}>
+          <span className="num absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap text-indigo-600">{usdMt(suggested)}</span>
         </div>
       )}
     </div>
   )
 }
+
+/** Day-on-day change: ▲ green, ▼ red, flat grey. */
+function DeltaChip({ r }: { r: QueryResult<number> }) {
+  const v = r.value ?? 0
+  const style = v > 0 ? 'bg-emerald-50 text-emerald-600' : v < 0 ? 'bg-red-50 text-red-600' : 'bg-zinc-100 text-zinc-500'
+  return (
+    <span className={`ml-2 inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-semibold ${style}`} title="Change vs yesterday">
+      <span aria-hidden="true">{v > 0 ? '▲' : v < 0 ? '▼' : '■'}</span>
+      <MetricValue r={r} format={(n: number) => usdMt(Math.abs(n))} />
+    </span>
+  )
+}
+
+const VS = ({ children }: { children: string }) => <span className="mx-1 font-normal text-zinc-400">{children}</span>
 
 export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserContext }) {
   const p = { enquiryId }
@@ -36,15 +50,19 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const bench = query('benchmark_price', p, user)
   const delta = query('benchmark_delta', p, user)
   const cost = query('our_cost', p, user)
+  const benchmarkRow = (
+    <ListRow label={`Benchmark ${grade ?? ''}`}>
+      <MetricValue r={bench} format={(v: number) => usdMt(v)} />
+      <DeltaChip r={delta} />
+    </ListRow>
+  )
 
   if (blocked) {
     return (
-      <Panel step={3} title="Price">
-        <Row label={`Benchmark, ${grade}`}>
-          <MetricValue r={bench} />
-        </Row>
-        <p className="rounded bg-zinc-50 p-2 text-xs text-zinc-500">No price: this enquiry is blocked pending a compliance referral.</p>
-      </Panel>
+      <Card title="Pricing & Margin" verdict={{ tone: 'neutral', label: 'No price' }}>
+        <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-500">No price: this enquiry is blocked pending a compliance referral.</div>
+        <List>{benchmarkRow}</List>
+      </Card>
     )
   }
 
@@ -60,75 +78,68 @@ export function PricePanel({ enquiryId, user }: { enquiryId: string; user: UserC
   const margin = query('expected_deal_margin', p, user)
   const marginMt = query('expected_margin_per_mt', p, user)
   const claimRatio = custClaim.value !== null && deskClaim.value ? custClaim.value / deskClaim.value : null
+  const thinMargin = (marginMt.value ?? 0) < 3
   const w = win.value
 
+  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt` }
+
   return (
-    <Panel step={3} title="Price">
-      <div className="flex flex-col gap-1">
-        <Row label={`Benchmark, ${grade}`}>
-          <MetricValue r={bench} />
-          <MetricValue r={delta} format={(v: number) => signedUsdMt(v)} className={`ml-1.5 text-xs ${(delta.value ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`} />
-        </Row>
-        <Row label="Our cost">
-          <MetricValue r={cost} />
-        </Row>
+    <Card title="Pricing & Margin" verdict={verdict}>
+      <Hero
+        label="Suggested premium"
+        tone="accent"
+        caption={
+          breakdown && (
+            <span className="num">
+              {breakdown.baseSource === 'customer' ? 'Customer avg' : 'Desk avg'} {usdMt(breakdown.base)}
+              {breakdown.claimAdj > 0 && <span className="text-amber-600"> + ${breakdown.claimAdj} claims</span>}
+              {breakdown.dpdAdj > 0 && <span className="text-amber-600"> + ${breakdown.dpdAdj} late payment</span>}
+            </span>
+          )
+        }
+      >
+        <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
+        <span className="ml-1 text-sm font-medium text-zinc-400">/mt</span>
+      </Hero>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Tile label="Quoted price">
+          <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
+        </Tile>
+        <Tile label="Expected margin" sub={<MetricValue r={marginMt} />} subTone={thinMargin ? 'warn' : 'neutral'}>
+          <MetricValue r={margin} format={(v: number) => usd(v)} className={thinMargin ? 'text-amber-600' : ''} />
+        </Tile>
       </div>
 
-      <div className="flex flex-col gap-1 border-t border-zinc-100 pt-3">
-        <Row label="Avg premium">
-          <MetricValue r={custPrem} format={(v: number) => usdMt(v)} /> <span className="text-zinc-400">vs desk</span>{' '}
-          <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} />
-        </Row>
-        <Row sub label="Customer deals, 12m">
-          <MetricValue r={deals} />
-        </Row>
-        <Row label="Claim share">
-          <MetricValue r={custClaim} /> <span className="text-zinc-400">vs desk</span> <MetricValue r={deskClaim} />
-        </Row>
-        {claimRatio !== null && claimRatio > 2 && (
-          <Row sub label="Ratio">
-            <span className="text-amber-700">{claimRatio.toFixed(1)}× desk</span>
-          </Row>
-        )}
-      </div>
+      <List>
+        {benchmarkRow}
+        <ListRow label="Our cost">
+          <MetricValue r={cost} format={(v: number) => usdMt(v)} />
+        </ListRow>
+        <ListRow label="Avg premium" hint={<>customer vs desk · {deals.value ?? 0} deals</>}>
+          <MetricValue r={custPrem} format={(v: number) => usdMt(v)} />
+          <VS>vs</VS>
+          <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} className="font-normal text-zinc-500" />
+        </ListRow>
+        <ListRow label="Claim share" hint="customer vs desk">
+          <MetricValue r={custClaim} className={claimRatio !== null && claimRatio > 2 ? 'text-amber-600' : ''} />
+          <VS>vs</VS>
+          <MetricValue r={deskClaim} className="font-normal text-zinc-500" />
+        </ListRow>
+      </List>
 
       {w && (
-        <div className="border-t border-zinc-100 pt-3">
+        <div>
           <div className="flex items-baseline justify-between">
-            <span className="text-zinc-600">Win range, similar deals</span>
-            <span className="num text-xs text-zinc-400">n = {w.n}</span>
+            <h3 className="text-[11px] font-medium text-zinc-400">Win range on similar deals</h3>
+            <span className="num text-[11px] text-zinc-400">n = {w.n}</span>
           </div>
           <WinRangeBar w={w} suggested={suggested.value} />
-          <div className="num flex flex-wrap justify-between gap-x-3 text-xs text-zinc-500">
-            <span>
-              Won p25–p75: {w.wonP25 !== null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'} ({w.nWon})
-            </span>
-            <span>Lowest lost: {w.lowestLost !== null ? usdMt(w.lowestLost) : '—'}</span>
+          <div className="num text-[11px] text-zinc-500">
+            Won {w.wonP25 !== null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'} (p25–p75 of {w.nWon} wins)
           </div>
         </div>
       )}
-
-      <div className="flex flex-col gap-1 rounded border border-indigo-100 bg-indigo-50/50 p-2">
-        <Row label={<span className="font-medium text-zinc-800">Suggested premium</span>}>
-          <MetricValue r={suggested} className="font-semibold text-indigo-700" />
-        </Row>
-        {breakdown && (
-          <div className="flex flex-wrap gap-1 text-[11px]">
-            <Pill tone="neutral">
-              {breakdown.baseSource === 'customer' ? 'customer avg' : 'desk avg'} {usdMt(breakdown.base)}
-            </Pill>
-            {breakdown.claimAdj > 0 && <Pill tone="warn">+${breakdown.claimAdj} claims</Pill>}
-            {breakdown.dpdAdj > 0 && <Pill tone="warn">+${breakdown.dpdAdj} late payment</Pill>}
-          </div>
-        )}
-        <Row label="Quoted price">
-          <MetricValue r={price} />
-        </Row>
-        <Row label="Expected margin">
-          <MetricValue r={margin} /> <span className="text-xs text-zinc-400">(<MetricValue r={marginMt} />)</span>
-        </Row>
-      </div>
-      <p className="text-[11px] text-zinc-400">Quote builder (premium slider) arrives in stage 5.</p>
-    </Panel>
+    </Card>
   )
 }

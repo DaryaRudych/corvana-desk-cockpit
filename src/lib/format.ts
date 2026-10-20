@@ -49,9 +49,22 @@ export function formatValue(unit: Unit, v: unknown): string {
   }
 }
 
-const DATE_FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })
-/** '2026-10-25' → 'Sun 25 Oct' */
-export const day = (date: string) => DATE_FMT.format(new Date(`${date}T00:00:00Z`))
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const parts = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`)
+  return { wd: WEEKDAYS[d.getUTCDay()], d: d.getUTCDate(), m: MONTHS[d.getUTCMonth()], y: d.getUTCFullYear() }
+}
+/** '2026-10-25' → 'Sun 25 Oct' (fixed names, so every browser renders the same) */
+export const day = (date: string) => {
+  const p = parts(date)
+  return `${p.wd} ${p.d} ${p.m}`
+}
+/** '2026-09-01' → '1 Sep 2026' */
+export const longDate = (date: string) => {
+  const p = parts(date)
+  return `${p.d} ${p.m} ${p.y}`
+}
 /** '2026-10-25' → '25' */
 export const dayOfMonth = (date: string) => String(Number(date.slice(8, 10)))
 /** '2026-10-25' → 'S' */

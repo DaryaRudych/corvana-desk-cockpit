@@ -45,4 +45,4 @@ export function query<K extends MetricId>(metricId: K, params: ParamsOf<K>, user
 }
 
 export { METRIC_CATALOG, type MetricId, type MetricMeta } from './metrics'
-export { TRADER, COMPLIANCE_OFFICER, userLabel, type UserContext } from './permissions'
+export { TRADER, COMPLIANCE_OFFICER, businessUnitName, describeAccess, userLabel, type UserContext } from './permissions'
