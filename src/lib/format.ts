@@ -13,6 +13,13 @@ export function usd(v: number): string {
   if (a >= 10_000) return `${sign(v)}$${Math.round(a / 1_000)}k`
   return `${sign(v)}$${int(a)}`
 }
+/** Compact with one decimal: 26428 → '$26.4k', 4180000 → '$4.18M'. */
+export function usdCompact(v: number): string {
+  const a = Math.abs(v)
+  if (a >= 1_000_000) return `${sign(v)}$${(a / 1_000_000).toFixed(2)}M`
+  if (a >= 1_000) return `${sign(v)}$${(a / 1_000).toFixed(1)}k`
+  return `${sign(v)}$${int(a)}`
+}
 export const usdMt = (v: number) => `${sign(v)}$${Math.abs(v).toFixed(2)}`
 export const mt = (v: number) => `${int(v)} mt`
 export const pct = (v: number, digits = 2) => `${(v * 100).toFixed(digits)}%`

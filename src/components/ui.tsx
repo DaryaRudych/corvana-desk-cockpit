@@ -9,20 +9,30 @@ import { useMetricCard } from './metricCardContext'
 export type Tone = 'ok' | 'warn' | 'bad' | 'neutral' | 'accent'
 export interface Verdict {
   tone: Tone
-  label: string
+  label: ReactNode
 }
 
 export const CARD = 'rounded-2xl bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_16px_rgba(16,24,40,0.05)]'
 
 /** Decision card: a title and its one-line answer as a status pill. Same frame for every card. */
-export function Card({ title, verdict, children }: { title: string; verdict: Verdict; children: ReactNode }) {
+export function Card({ title, verdict, verdictInfo, children }: { title: string; verdict?: Verdict; verdictInfo?: ReactNode; children: ReactNode }) {
   return (
     <section className={`flex flex-col ${CARD}`}>
       <header className="flex flex-col items-start gap-1.5 px-5 pt-4">
         <h2 className="text-base leading-snug font-semibold tracking-tight whitespace-nowrap text-zinc-900">{title}</h2>
-        <Pill tone={verdict.tone} className="whitespace-nowrap">
-          {verdict.label}
-        </Pill>
+        {verdict ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Pill tone={verdict.tone} className="whitespace-nowrap">
+              {verdict.label}
+            </Pill>
+            {verdictInfo}
+          </span>
+        ) : (
+          // Keep the pill's height so content lines up across cards.
+          <span aria-hidden="true" className="invisible inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
+            &nbsp;
+          </span>
+        )}
       </header>
       <div className="flex flex-1 flex-col gap-4 px-5 pt-4 pb-5">{children}</div>
     </section>
@@ -37,12 +47,12 @@ const HERO_TONE: Record<Tone, string> = {
   accent: 'text-indigo-600',
 }
 /** The one figure a card leads with. */
-export function Hero({ label, tone = 'neutral', caption, children }: { label: string; tone?: Tone; caption?: ReactNode; children: ReactNode }) {
+export function Hero({ label, tone = 'neutral', caption, children }: { label: ReactNode; tone?: Tone; caption?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs text-zinc-500">{label}</div>
       <div className={`text-[28px] leading-tight font-semibold tracking-tight ${HERO_TONE[tone]}`}>{children}</div>
-      {caption && <div className="mt-0.5 text-xs text-zinc-500">{caption}</div>}
+      {caption && <div className="mt-0.5 text-[11px] text-zinc-500">{caption}</div>}
     </div>
   )
 }
@@ -131,6 +141,35 @@ export function DetailRestricted({ message }: { message: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400" title={message}>
       <LockIcon className="size-2.5" /> detail restricted
+    </span>
+  )
+}
+
+/** ⓘ with a hover/focus tooltip. Rule thresholds and scopes live here, not inline. */
+export function InfoTip({
+  children,
+  label = 'More information',
+  below = false,
+  align = 'center',
+  wide = false,
+}: {
+  children: ReactNode
+  label?: string
+  below?: boolean
+  align?: 'center' | 'left' | 'right'
+  wide?: boolean
+}) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <span tabIndex={0} aria-label={label} className="flex size-3.5 cursor-help items-center justify-center rounded-full border border-zinc-300 text-[9px] font-bold text-zinc-400 group-hover:border-zinc-500 group-hover:text-zinc-600 focus:outline-none">
+        i
+      </span>
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute z-30 ${wide ? 'w-72' : 'w-60'} rounded-lg ${below ? 'top-5' : 'bottom-5'} ${align === 'left' ? 'left-0' : align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} bg-zinc-900 px-3 py-2 text-left text-xs leading-snug font-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100`}
+      >
+        {children}
+      </span>
     </span>
   )
 }

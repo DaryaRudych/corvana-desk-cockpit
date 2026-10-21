@@ -58,10 +58,21 @@ export function ask(question: string, enquiryId: string, user: UserContext): Ans
       v.baseSource === 'customer'
         ? ['It starts from the customer’s 12-month average premium, ', chip(query('customer_avg_premium', p, user), { format: perMt }), ' over ', chip(query('customer_deal_count', p, user)), ' deals.']
         : ['The customer has fewer than 5 deals (', chip(query('customer_deal_count', p, user)), '), so it starts from the desk average, ', chip(query('desk_avg_premium', p, user), { format: perMt }), '.']
-    if (v.claimAdj > 0) text.push(` +$${v.claimAdj} for claims: their claim share is `, chip(query('customer_claim_share', p, user)), ' against the desk’s ', chip(query('desk_claim_share', p, user)), ', more than twice as high.')
-    if (v.dpdAdj > 0) text.push(` +$${v.dpdAdj} for late payment: they pay `, chip(query('days_past_due', p, user)), ' late on average, more than 3.')
-    if (v.claimAdj === 0 && v.dpdAdj === 0) text.push(' No claims or late-payment adjustment applies.')
-    text.push(' Rounded to $0.50: ', chip(query('suggested_premium', p, user), { format: perMt }), '.')
+    const claims = query('customer_claim_share', p, user)
+    const deskClaims = query('desk_claim_share', p, user)
+    const dpd = query('days_past_due', p, user)
+    const signed = (n: number) => `${n < 0 ? '−' : '+'}$${Math.abs(n).toFixed(2)}`
+    text.push(
+      ' Claims: ',
+      chip(b, { label: signed(v.claimAdj) }),
+      v.claimAdj ? ', because their claim share ' : '; their claim share ',
+      chip(claims),
+      ' vs the desk’s ',
+      chip(deskClaims),
+      v.claimAdj ? ' is more than twice as high.' : ' is not above 2× the desk’s.',
+    )
+    text.push(' Late payment: ', chip(b, { label: signed(v.dpdAdj) }), v.dpdAdj ? ', because they pay ' : '; they pay ', chip(dpd), v.dpdAdj ? ' late on average, more than 3.' : ' late on average, not more than 3.')
+    text.push(' Rounded to the nearest $0.50 (', chip(b, { label: signed(v.rounding) }), '): ', chip(query('suggested_premium', p, user), { format: perMt }), '.')
     return answer(text, {}, [b])
   }
 

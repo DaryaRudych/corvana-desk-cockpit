@@ -1,6 +1,6 @@
 // "Definitions & access": the metric catalog, the permission rules and how the AI is kept
 // accurate, all read from the same registry and permission code the cockpit runs on.
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { METRIC_CATALOG, businessUnitName, describeAccess, type MetricMeta, type UserContext } from '../semantic/query'
 import { ChevronIcon, LockIcon } from './Icons'
 import { CertifiedBadge } from './MetricCard'
@@ -13,9 +13,13 @@ const TABS: { id: DrawerTab; label: string }[] = [
   { id: 'ai', label: 'How AI stays accurate' },
 ]
 
-function CatalogRow({ m }: { m: MetricMeta }) {
+function CatalogRow({ m, focused }: { m: MetricMeta; focused: boolean }) {
+  const ref = useRef<HTMLDetailsElement>(null)
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: 'center' })
+  }, [focused])
   return (
-    <details className="group border-b border-zinc-100 last:border-0">
+    <details ref={ref} open={focused || undefined} className={`group border-b border-zinc-100 last:border-0 ${focused ? '-mx-3 rounded-lg bg-indigo-50/60 px-3' : ''}`}>
       <summary className="flex cursor-pointer list-none items-center gap-2 py-2.5 [&::-webkit-details-marker]:hidden">
         <ChevronIcon className="size-3 shrink-0 text-zinc-400 transition-transform group-open:rotate-90" />
         <span className="min-w-0 flex-1">
@@ -45,7 +49,7 @@ function CatalogRow({ m }: { m: MetricMeta }) {
   )
 }
 
-function Catalog({ user }: { user: UserContext }) {
+function Catalog({ user, focus }: { user: UserContext; focus?: string }) {
   const groups = [
     { title: 'Group', note: 'Shared definitions every business unit inherits', items: METRIC_CATALOG.filter((m) => m.scope === 'group') },
     { title: businessUnitName(user.businessUnit), note: 'Desk-level definitions built on the group model', items: METRIC_CATALOG.filter((m) => m.scope === 'bu') },
@@ -61,7 +65,7 @@ function Catalog({ user }: { user: UserContext }) {
           <p className="mb-1 text-xs text-zinc-500">{g.note}</p>
           <div className="rounded-xl border border-zinc-100 px-3">
             {g.items.map((m) => (
-              <CatalogRow key={m.id} m={m} />
+              <CatalogRow key={m.id} m={m} focused={m.id === focus} />
             ))}
           </div>
         </section>
@@ -147,7 +151,20 @@ function HowAi() {
   )
 }
 
-export function GovernanceDrawer({ user, tab, onTab, onClose }: { user: UserContext; tab: DrawerTab; onTab: (t: DrawerTab) => void; onClose: () => void }) {
+export function GovernanceDrawer({
+  user,
+  tab,
+  focus,
+  onTab,
+  onClose,
+}: {
+  user: UserContext
+  tab: DrawerTab
+  /** Metric id to open and scroll to in the catalog. */
+  focus?: string
+  onTab: (t: DrawerTab) => void
+  onClose: () => void
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -184,7 +201,7 @@ export function GovernanceDrawer({ user, tab, onTab, onClose }: { user: UserCont
           ))}
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          {tab === 'catalog' && <Catalog user={user} />}
+          {tab === 'catalog' && <Catalog user={user} focus={focus} />}
           {tab === 'access' && <Access user={user} />}
           {tab === 'ai' && <HowAi />}
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
+import { mt, usd, usdMt } from '../lib/format'
 import { businessUnitName, query, type QueryResult, type UserContext } from '../semantic/query'
-import { mt, usdMt } from '../lib/format'
 import { AlertIcon, ChevronIcon } from './Icons'
 import { termsParams, type Terms } from './terms'
 import { Card, DetailRestricted, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
@@ -26,7 +26,10 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
   const screeningDetail = query('vessel_screening_detail', p, user)
   const blocked = query('compliance_check', p, user).value === 'FLAG'
 
-  const after = query('credit_headroom_after_deal', termsParams(enquiryId, terms), user)
+  const live = termsParams(enquiryId, terms)
+  const after = query('credit_headroom_after_deal', live, user)
+  const dealUse = query('deal_credit_use', live, user)
+  const price = query('quoted_price', live, user)
   const before = query('credit_headroom_before_deal', p, user)
   const limit = query('group_credit_limit', p, user)
   const exposure = query('group_exposure', p, user)
@@ -34,12 +37,17 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
   const other = query('exposure_other_bus', p, user)
   const dpd = query('days_past_due', p, user)
   const negative = (after.value ?? 0) < 0
+  // Governed rule: over / at limit (< 1% of the group limit left) / within.
+  const status = query('credit_status', live, user).value
+  const fitsUpTo = query('max_quantity_within_credit', live, user)
 
   const verdict: Verdict = blocked
     ? { tone: 'bad', label: 'Blocked: compliance' }
-    : negative
+    : status === 'over'
       ? { tone: 'bad', label: 'Over credit limit' }
-      : { tone: 'ok', label: 'Clear to trade' }
+      : status === 'at_limit'
+        ? { tone: 'warn', label: 'At credit limit' }
+        : { tone: 'ok', label: 'Clear to trade' }
 
   return (
     <Card title="Compliance & Credit" verdict={verdict}>
@@ -65,16 +73,10 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
         <>
           <Hero
             label="Credit headroom after this deal"
-            tone={negative ? 'bad' : 'ok'}
+            tone={negative ? 'bad' : status === 'at_limit' ? 'warn' : 'ok'}
             caption={
               <>
-                <span className="num">
-                  At {usdMt(terms.premium)}/mt × {mt(terms.quantity)}
-                  {terms.letterOfCredit && ', under letter of credit'}
-                </span>
-                <br />
-                Group limit <MetricValue r={limit} className="font-medium text-zinc-700" />
-                {negative && ' · this deal breaches it'}
+                of <MetricValue r={limit} /> group limit
               </>
             }
           >
@@ -88,6 +90,18 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
             <ListRow label="Headroom before this deal">
               <MetricValue r={before} />
             </ListRow>
+            {/* The whole invoice is owed until paid, so this is what the deal takes from headroom. */}
+            <ListRow
+              label="This deal uses"
+              hint={terms.letterOfCredit ? 'letter of credit: no customer credit' : <>{mt(terms.quantity)} × <MetricValue r={price} format={(v: number) => usdMt(v)} />, owed until paid</>}
+            >
+              <MetricValue r={dealUse} format={(v: number) => usd(v)} />
+            </ListRow>
+            {status === 'over' && (
+              <ListRow label="Fits within limit" hint="at this price, rounded down to 50 mt">
+                <MetricValue r={fitsUpTo} format={(v: number) => `up to ${mt(v)}`} className="text-red-600" />
+              </ListRow>
+            )}
           </List>
 
           <div>

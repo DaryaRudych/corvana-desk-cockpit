@@ -47,13 +47,13 @@ src/components/              queue, enquiry header, the three decision cards, AI
 
 ## Demo script
 
-1. Open the app. The queue shows 40 open enquiries, ranked by time to quote due: **Halbrook Lines** (S4, due in 55 min) and **Brannock Shipping** (S1) at the top, **Quillon Marine** (S3) at the bottom, blocked.
-2. Click **Brannock Shipping**. *Compliance & Credit* shows headroom after the deal of **−$247k**. Open **Show exposure breakdown**: $3.92M Asia Bunkering, $400k other BUs (*detail restricted*), 4.0 days past due. The **AI summary** recommends **Counter**: late payment and claims lift the premium to $13.00, but credit is the reason to counter.
-3. Click **−$247k**. The metric card shows the definition, owner (Credit) and certification date.
-4. Move the **premium slider** in *Pricing & Margin*. Quoted price, margin and headroom update live; the track shows the win range on similar deals (p25–p75, lowest lost, n = 225).
+1. Open the app. The queue shows 40 open enquiries, ranked by time to quote due: **Halbrook Lines** (S4, due in 55 min) and **Brannock Shipping** (S1) at the top, **Quillon Marine** (S3) at the bottom, blocked, although it is due sooner than S1.
+2. Click **Brannock Shipping**. *Compliance & Credit* shows headroom after the deal of **−$247k**. Open **Show exposure breakdown**: $3.92M Asia Bunkering, $400k other BUs (*detail restricted*), 4.0 days past due. *Pricing & Margin* shows the $13.00 suggested premium; the ⓘ beside it shows how the rule builds it: customer average $9.99 + $2 claims + $1 late payment, rounded to the nearest $0.50. The **AI summary** cites that build-up and recommends **Counter**: credit is the reason, not price.
+3. Click **−$247k**. The metric card shows the definition, owner (Credit) and certification date. Its definition counts the whole invoice (1,500 mt × $618.00) as credit used until the customer pays, not just the premium.
+4. Move the **premium slider** in *Pricing & Margin*. Quoted price, margin and headroom update live; the track shows the won range and lowest lost premium on similar quotes (VLSFO, 750–2,250 mt, last 6 months, all desk customers, n = 257), plus this customer's average. **Quoted price** and **Expected margin** are the two outcome tiles; **How margin is built** expands the sum (benchmark + premium − our cost − barging = margin per tonne).
 5. Click **Ask a question** → **What premium did Rotterdam get from this customer?** → *"That data belongs to Rotterdam Bunkering and isn't available to Trader · Asia Bunkering."*
 6. Ask **Why this suggested premium?** The answer cites the +$2 claims and +$1 late-payment adjustments.
-7. Click **Counter**. The form is prefilled with 1,100 mt (also offered: full quantity with a letter of credit, or 15-day terms). **Review counter** opens the AI-drafted message; edit it, then **Send**. A toast confirms and the queue drops to 39. Nothing is actually sent.
+7. Click **Counter**. The form is prefilled with 1,100 mt, the most that fits in credit (also offered: the full quantity with a letter of credit). The credit card turns amber, *At credit limit*, since almost no headroom is left. **Review counter** opens the AI-drafted message; edit it, then **Send**. A toast confirms and the queue drops to 39. Nothing is actually sent.
 8. Click **Saltmarsh Bulk** (S2). The barge timeline shows both HSFO barges booked on the requested day and Gannet free two days later; the AI summary recommends the later date.
 9. Click **Quillon Marine** (S3). Vessel screening **Flag** only, *Refer to compliance*, no price, actions disabled.
 10. Open **Definitions & access**: metric catalog, who sees what, how AI stays accurate.

@@ -64,7 +64,6 @@ export type Move = 'QUOTE' | 'COUNTER' | 'DECLINE' | 'BLOCKED'
 export type CounterOption =
   | { kind: 'quantity'; quantityMt: number }
   | { kind: 'letter_of_credit'; quantityMt: number }
-  | { kind: 'payment_terms'; paymentDays: number; note: string }
   | { kind: 'delivery_date'; deliveryDate: string; bargeName: string }
 export interface SuggestedMove {
   move: Move
@@ -84,10 +83,14 @@ const MIN_CUSTOMER_DEALS = 5
 const CLAIM_ADJ_USD = 2
 const DPD_ADJ_USD = 1
 const MIN_MARGIN_USD_MT = 3
+const MARGIN_WATCH_BAND = 3 // amber band above the floor
 const COUNTER_DATE_DAYS = 3
 const MIN_QTY_MT = 300
 const QTY_STEP_MT = 50
-const SHORT_TERMS_DAYS = 15
+/** Shown when the trader shortens payment terms: it is not a fix on its own, so it's no longer offered as one. */
+export const SHORTER_TERMS_NOTE = "Shorter terms free credit sooner but don't fix the breach on delivery day; combine with a smaller quantity or a letter of credit."
+/** Headroom after the deal below this share of the group limit counts as "at limit": any upward move breaches it. */
+const AT_LIMIT_SHARE = 0.01
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -173,6 +176,9 @@ function premiumBreakdown(ctx: ComputeCtx, e: EnquiryRow) {
     claimAdj,
     daysPastDue: dpd === null ? null : round2(dpd),
     dpdAdj,
+    beforeRounding: round2(base + claimAdj + dpdAdj),
+    /** The rule's last step: round to the nearest $0.50. Shown so the build-up adds up on screen. */
+    rounding: round2(roundTo(base + claimAdj + dpdAdj, 0.5) - (base + claimAdj + dpdAdj)),
     value: roundTo(base + claimAdj + dpdAdj, 0.5),
   }
 }
@@ -201,9 +207,14 @@ function terms(ctx: ComputeCtx, p: TermsParams) {
   const quantity = p.quantity ?? e.quantity_mt
   return { e, premium, quantity, price: round2(benchmarkToday(ctx, e.grade_id) + premium) }
 }
+/** What the customer owes for this deal from delivery until payment: the whole invoice, not the premium. */
+const dealCreditUse = (ctx: ComputeCtx, p: TermsParams) => {
+  const { quantity, price } = terms(ctx, p)
+  return p.letterOfCredit ? 0 : round2(quantity * price)
+}
 const headroomAfter = (ctx: ComputeCtx, p: TermsParams) => {
-  const { e, quantity, price } = terms(ctx, p)
-  return round2(headroomBefore(ctx, e.customer_id) - (p.letterOfCredit ? 0 : quantity * price))
+  const { e } = terms(ctx, p)
+  return round2(headroomBefore(ctx, e.customer_id) - dealCreditUse(ctx, p))
 }
 
 function bargingPerMt(ctx: ComputeCtx, deskId: string): number {
@@ -252,11 +263,6 @@ function suggestedMove(ctx: ComputeCtx, e: EnquiryRow): SuggestedMove {
     const counterOptions: CounterOption[] = []
     if (maxQty >= MIN_QTY_MT) counterOptions.push({ kind: 'quantity', quantityMt: maxQty })
     counterOptions.push({ kind: 'letter_of_credit', quantityMt: e.quantity_mt })
-    counterOptions.push({
-      kind: 'payment_terms',
-      paymentDays: SHORT_TERMS_DAYS,
-      note: "Frees credit sooner but doesn't fix the breach on delivery day; combine with a smaller quantity or a letter of credit.",
-    })
     return {
       move: 'COUNTER',
       reason: 'credit',
@@ -584,12 +590,48 @@ export const METRICS = {
     kind: 'metric',
     compute: (ctx, p: EnquiryParams) => headroomBefore(ctx, enquiryOf(ctx, p.enquiryId).customer_id),
   }),
+  deal_credit_use: defineMetric({
+    id: 'deal_credit_use',
+    name: 'Credit used by this deal',
+    definition:
+      'What the customer will owe for this deal from delivery until they pay (payment terms, typically 30 days): the whole invoice, quantity × quoted price, not just the premium. Under a letter of credit the bank carries it, so it uses no customer credit.',
+    formula: 'quantity × (benchmark + premium); 0 under a letter of credit',
+    owner: 'Credit',
+    certified: true,
+    certifiedOn: '2026-09-01',
+    sourceTables: ['fct_market_price'],
+    scope: 'group',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'usd',
+    kind: 'metric',
+    compute: (ctx, p: TermsParams) => dealCreditUse(ctx, p),
+  }),
+  credit_status: defineMetric({
+    id: 'credit_status',
+    name: 'Credit status for this deal',
+    definition:
+      'Whether the deal fits the customer’s group credit at these terms: over the limit (headroom after the deal below zero), at the limit (headroom after the deal under 1% of the group limit, so any upward move breaches it), or within the limit.',
+    formula: 'headroom after deal < 0 → over · < 1% of group limit → at limit · otherwise → within',
+    owner: 'Credit',
+    certified: true,
+    certifiedOn: '2026-09-01',
+    sourceTables: ['dim_customer', 'agg_customer_exposure', 'fct_market_price'],
+    scope: 'group',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'status',
+    kind: 'metric',
+    compute: (ctx, p: TermsParams): 'over' | 'at_limit' | 'within' => {
+      const after = headroomAfter(ctx, p)
+      const limit = creditLimit(ctx, enquiryOf(ctx, p.enquiryId).customer_id)
+      return after < 0 ? 'over' : after < limit * AT_LIMIT_SHARE ? 'at_limit' : 'within'
+    },
+  }),
   credit_headroom_after_deal: defineMetric({
     id: 'credit_headroom_after_deal',
     name: 'Credit headroom after this deal',
     definition:
-      'Group credit left if this deal is done at these terms. Negative means the deal breaches the limit. A deal secured by a letter of credit uses no customer credit.',
-    formula: 'group credit limit − group exposure − quantity × (benchmark + premium); deal value counts as 0 under a letter of credit',
+      'Group credit left once this deal is delivered and invoiced, before the customer pays. Negative means the deal breaches the limit. A deal secured by a letter of credit uses no customer credit.',
+    formula: 'group credit limit − group exposure − credit used by this deal (quantity × quoted price)',
     owner: 'Credit',
     certified: true,
     certifiedOn: '2026-09-01',
@@ -786,8 +828,8 @@ export const METRICS = {
   customer_avg_premium: defineMetric({
     id: 'customer_avg_premium',
     name: 'Customer average premium',
-    definition: 'Average premium over benchmark on this customer’s deals with the desk in the last 12 months.',
-    formula: 'avg(fct_deal.premium_usd_mt), customer, last 12 months',
+    definition: 'Average premium over benchmark on this customer’s deals with the desk in the last 12 months, across all grades (VLSFO, HSFO and MGO together) for a larger sample.',
+    formula: 'avg(fct_deal.premium_usd_mt), customer, all grades, last 12 months',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',
@@ -894,6 +936,7 @@ export const METRICS = {
         wonP25: q(quantile(won, 0.25)),
         wonP75: q(quantile(won, 0.75)),
         lowestLost: lost.length ? Math.min(...lost) : null,
+        scope: { gradeName: gradeName(ctx, e.grade_id), qtyFrom: Math.round(e.quantity_mt * 0.5), qtyTo: Math.round(e.quantity_mt * 1.5), months: 6, customers: 'all desk customers' as const },
         n: similar.length,
         nWon: won.length,
         nLost: lost.length,
@@ -905,7 +948,7 @@ export const METRICS = {
     name: 'Suggested premium',
     definition:
       "Start from the customer's 12-month average premium (desk average if fewer than 5 deals); add $2 if their claim share is over 2× the desk's; add $1 if they pay more than 3 days late on average; round to $0.50.",
-    formula: 'round₀.₅(base premium + $2 × [claim share > 2× desk] + $1 × [days past due > 3])',
+    formula: 'base premium + $2 if claim share > 2× desk + $1 if days past due > 3, then rounded to the nearest $0.50',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',
@@ -946,11 +989,26 @@ export const METRICS = {
     kind: 'metric',
     compute: (ctx, p: TermsParams) => terms(ctx, p).price,
   }),
+  barging_cost_per_mt: defineMetric({
+    id: 'barging_cost_per_mt',
+    name: 'Barging cost per tonne',
+    definition: 'Estimated cost of delivering by barge: the desk’s average barging cost per tonne over its deals in the last 12 months.',
+    formula: 'Σ fct_deal.barging_cost_usd ÷ Σ fct_deal.quantity_mt, desk, last 12 months',
+    owner: 'Desk head',
+    certified: true,
+    certifiedOn: '2026-09-15',
+    sourceTables: ['fct_deal'],
+    scope: 'bu',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'usd_mt',
+    kind: 'metric',
+    compute: (ctx, p: EnquiryParams) => round2(bargingPerMt(ctx, enquiryOf(ctx, p.enquiryId).desk_id)),
+  }),
   expected_deal_margin: defineMetric({
     id: 'expected_deal_margin',
     name: 'Expected deal margin',
-    definition: 'Margin on this deal at these terms, after our stock cost and estimated barging. Barging is estimated at the desk’s 12-month average cost per tonne.',
-    formula: '(benchmark + premium − our cost) × quantity − barging cost',
+    definition: 'Margin on this deal at these terms: quoted price minus our stock cost minus barging, per tonne, times the quantity.',
+    formula: '(quoted price − our cost − barging cost per tonne) × quantity',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',
@@ -964,8 +1022,8 @@ export const METRICS = {
   expected_margin_per_mt: defineMetric({
     id: 'expected_margin_per_mt',
     name: 'Expected margin per tonne',
-    definition: 'Expected deal margin divided by quantity. Below $3/mt the suggested move is DECLINE.',
-    formula: 'expected deal margin ÷ quantity',
+    definition: 'Quoted price minus our cost minus barging, per tonne. Below $3/mt the suggested move is DECLINE.',
+    formula: 'quoted price − our cost − barging cost per tonne',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',
@@ -975,6 +1033,25 @@ export const METRICS = {
     unit: 'usd_mt',
     kind: 'metric',
     compute: (ctx, p: TermsParams) => round2(expectedMargin(ctx, p) / terms(ctx, p).quantity),
+  }),
+  margin_vs_floor: defineMetric({
+    id: 'margin_vs_floor',
+    name: 'Margin vs desk floor',
+    definition:
+      'Where the expected margin per tonne at these terms sits against the desk’s $3/mt minimum: below the floor (the suggested move is Decline), near it (within $3 above), or above it.',
+    formula: 'margin per tonne < $3 → below · $3 to < $6 → near · ≥ $6 → above',
+    owner: 'Desk head',
+    certified: true,
+    certifiedOn: '2026-09-15',
+    sourceTables: ['fct_market_price', 'fct_stock', 'fct_deal'],
+    scope: 'bu',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'status',
+    kind: 'metric',
+    compute: (ctx, p: TermsParams): 'below' | 'near' | 'above' => {
+      const m = expectedMargin(ctx, p) / terms(ctx, p).quantity
+      return m < MIN_MARGIN_USD_MT ? 'below' : m < MIN_MARGIN_USD_MT + MARGIN_WATCH_BAND ? 'near' : 'above'
+    },
   }),
   suggested_move: defineMetric({
     id: 'suggested_move',

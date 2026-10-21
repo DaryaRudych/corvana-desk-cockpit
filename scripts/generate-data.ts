@@ -235,8 +235,9 @@ for (const desk of DESKS) {
     let s = base
     for (let d = STOCK_FROM; d <= 0; d++) {
       s = clamp(roundTo(s + normal(0, base * 0.04), 10), base * 0.6, base * 1.4)
-      const ma = mean(Array.from({ length: 10 }, (_, i) => benchOn(g.id, d - 3 - i)))
-      const cost = round2(ma - 1.2 + normal(0, 0.6))
+      // Stock cost tracks the benchmark at about −$2/mt, so the premium is effectively the margin:
+      // a careless low quote loses money (today's cost is exactly benchmark − $2).
+      const cost = d === 0 ? round2(benchOn(g.id, 0) - 2) : round2(benchOn(g.id, d) - 2 + normal(0, 0.4))
       stockCost.set(`${desk.id}|${g.id}|${d}`, cost)
       stockRows.push({ date: dayStr(d), desk_id: desk.id, grade_id: g.id, stock_mt: s, avg_cost_usd_mt: cost })
     }
@@ -290,7 +291,7 @@ const customers: Customer[] = CUSTOMER_NAMES.map(([name, parent], i) => {
     name,
     parent,
     weight: uniform(0.6, 1.25),
-    basePremium: roundTo(clamp(normal(9, 2.3), 4, 15), 0.5),
+    basePremium: roundTo(clamp(normal(9, 1.3), 6.5, 12), 0.5),
     rtmPremiumOffset: roundTo(uniform(2, 5), 0.5),
     lateMean: LATE_PAYERS.has(i) ? randInt(5, 7) : pick([0, 0, 1, 1, 1, 2, 2]),
     claimProb: 0.045,
@@ -315,7 +316,7 @@ const [S1C, S2C, S3C, S4C] = customers
 Object.assign(S1C, { weight: 0.75, basePremium: 10, lateMean: 4, claimProb: 0.05, terms: 30, tradesRtm: false, rtmPremiumOffset: 6 })
 Object.assign(S2C, { basePremium: 11, lateMean: 1, tradesRtm: false })
 Object.assign(S3C, { basePremium: 9, lateMean: 1, tradesRtm: false })
-Object.assign(S4C, { weight: 1.4, basePremium: 14, lateMean: 0, claimProb: 0, terms: 30, tradesRtm: false })
+Object.assign(S4C, { weight: 0.6, basePremium: 14, lateMean: 0, claimProb: 0, terms: 30, tradesRtm: false, rtmPremiumOffset: 3 })
 const SCENARIO_CUSTOMERS = new Set([S1C.id, S2C.id, S3C.id, S4C.id])
 
 const S3_VESSEL = S3C.vessels[0]
@@ -523,8 +524,10 @@ function generateHistory(desk: DeskCfg, pool: Customer[]): void {
     const action: 'quote' | 'counter' = rand() < 0.8 ? 'quote' : 'counter'
     const base = enq.customer.basePremium + (desk === RTM ? enq.customer.rtmPremiumOffset : 0)
     const sizeAdj = enq.qty < 800 ? 1 : enq.qty > 2000 ? -1 : 0
-    const premium = clamp(roundTo(base + sizeAdj + normal(0, 2.2), 0.5), 3, 20)
-    const winP = (1 / (1 + Math.exp((premium - (base + sizeAdj + 0.8)) / 1.3))) * (action === 'counter' ? 0.8 : 1)
+    // Customers accept up to roughly their usual premium; above it, wins fall off quickly.
+    // Losses therefore sit mostly above the won band, so "lowest lost" is a real price signal.
+    const premium = clamp(roundTo(base + sizeAdj + normal(0, 1.6), 0.5), 3, 20)
+    const winP = (1 / (1 + Math.exp((premium - (base + sizeAdj + 0.8)) / 0.45))) * (action === 'counter' ? 0.8 : 1)
     if (rand() >= winP) {
       enq.action = action
       enq.status = action === 'quote' ? 'quoted' : 'countered'
@@ -612,11 +615,23 @@ const groupExposure = (c: Customer) => round2(exposure(ASIA, c) + exposure(RTM, 
 
 // ───────────────────────────── today's open enquiries ─────────────────────────────
 
+// A vessel sends one enquiry a day (two at most, for different grades), across both desks.
+const openGradesByVessel = new Map<string, GradeId[]>()
 function generateOpen(desk: DeskCfg, pool: Customer[]): void {
   for (let i = 0; i < desk.openN; i++) {
     const dueMin = NOW_MIN + randInt(150, 600)
     const recMin = Math.min(NOW_MIN - randInt(5, 60), dueMin - randInt(4 * 60, 8 * 60))
-    newEnquiry(desk, pick(pool), recMin, { dueMin })
+    const pairs = pool.flatMap((c) => tradableVessels(c).map((v) => ({ c, v })))
+    const fresh = pairs.filter((x) => !openGradesByVessel.has(x.v.id))
+    const second = pairs.filter((x) => openGradesByVessel.get(x.v.id)?.length === 1)
+    const { c, v } = fresh.length ? pick(fresh) : pick(second)
+    const used = openGradesByVessel.get(v.id) ?? []
+    const grade = weightedPick(
+      GRADES.filter((g) => !used.includes(g.id)),
+      (g) => g.mix,
+    ).id
+    openGradesByVessel.set(v.id, [...used, grade])
+    newEnquiry(desk, c, recMin, { dueMin, vessel: v, grade })
   }
 }
 // Keep customers already near a $10M limit out of today's queue, so S1 stays the credit story.
@@ -709,31 +724,56 @@ const S4 = newEnquiry(ASIA, S4C, NOW_MIN - 185, {
 }
 
 // (c) Group exposure: $3.92M Asia + $0.40M Rotterdam, balanced with contracted-not-delivered deals.
-function balanceExposure(desk: DeskCfg, target: number, recDays: [number, number], deliveryDays: number[]): void {
-  let gap = round2(target - exposure(desk, S1C))
-  assert(gap >= 190_000, `${desk.code} S1 exposure from history is too close to target (gap ${gap})`)
-  const premium = S1C.basePremium + (desk === RTM ? S1C.rtmPremiumOffset : 0)
-  const parts = Math.ceil(gap / 1_300_000)
-  for (let i = 0; i < parts; i++) {
-    const part = i === parts - 1 ? gap : round2(gap / (parts - i))
-    const recMin = randInt(recDays[0], recDays[1]) * 1440 + randInt(8 * 60, 16 * 60)
-    const b = benchOn('GRD_VLSFO', dayOf(recMin))
-    const qty = Math.round(part / (b + premium))
-    const slot = findSlot(desk, 'GRD_VLSFO', qty, shuffle(deliveryDays))
-    assert(slot !== null, `${desk.code} S1 balancing deal needs a barge`)
-    const enq = newEnquiry(desk, S1C, recMin, {
-      vessel: S1C.vessels[1],
-      grade: 'GRD_VLSFO',
-      qty,
-      winStart: slot!.day,
-      winEnd: slot!.day + 1,
-    })
-    closeAsWon(enq, 'quote', premium, qty, slot!.barge, slot!.day, round2(part / qty))
-    gap = round2(gap - qty * round2(part / qty))
+function balanceExposure(c: Customer, desk: DeskCfg, target: number, recDays: [number, number], deliveryDays: number[]): void {
+  let gap = round2(target - exposure(desk, c))
+  assert(gap >= 370_000, `${desk.code} ${c.name} exposure from history is too close to target (gap ${gap})`)
+  const base = c.basePremium + (desk === RTM ? c.rtmPremiumOffset : 0)
+  const usedDays = new Set<number>()
+  const premiums = range(-8, 8).map((k) => base + k * 0.25) // $0.25 steps around the customer's usual premium
+  const qtys = range(6, 50).map((k) => k * 50) // 300–2,500 mt in round 50 mt steps
+
+  const book = (qty: number, premium: number, recMin: number, vessel: Vessel) => {
+    const slot = findSlot(desk, 'GRD_VLSFO', qty, shuffle(deliveryDays.filter((d) => !usedDays.has(d))))
+    assert(slot !== null, `${desk.code} ${c.name} balancing deal needs a barge`)
+    usedDays.add(slot!.day)
+    const enq = newEnquiry(desk, c, recMin, { vessel, grade: 'GRD_VLSFO', qty, winStart: slot!.day, winEnd: slot!.day + 1 })
+    closeAsWon(enq, 'quote', premium, qty, slot!.barge, slot!.day)
+    gap = round2(gap - qty * round2(benchOn('GRD_VLSFO', dayOf(recMin)) + premium))
   }
+  const rec = () => randInt(recDays[0], recDays[1]) * 1440 + randInt(8 * 60, 16 * 60)
+
+  // Large gaps: one ordinary round deal first.
+  while (gap > 2_600_000) {
+    const r = rec()
+    book(roundTo(uniform(1_200, 1_800), 50), roundTo(base, 0.25), r, pick(c.vessels))
+  }
+  // Last two deals: round quantities and premiums whose combined value lands on the target.
+  const r1 = rec()
+  const r2 = rec()
+  const b1 = benchOn('GRD_VLSFO', dayOf(r1))
+  const b2 = benchOn('GRD_VLSFO', dayOf(r2))
+  let best = { d: Infinity, q1: 0, p1: 0, q2: 0, p2: 0 }
+  for (const q1 of qtys)
+    for (const p1 of premiums) {
+      const v1 = q1 * round2(b1 + p1)
+      if (v1 >= gap) break
+      for (const q2 of qtys) {
+        if (q2 === q1) continue // two different-looking orders
+        for (const p2 of premiums) {
+          const d = Math.abs(gap - v1 - q2 * round2(b2 + p2))
+          if (d < best.d) best = { d, q1, p1, q2, p2 }
+        }
+      }
+    }
+  book(best.q1, best.p1, r1, c.vessels[0])
+  book(best.q2, best.p2, r2, c.vessels[1])
 }
-balanceExposure(ASIA, 3_920_000, [-6, -2], [1, 2, 3, 7, 8, 9])
-balanceExposure(RTM, 400_000, [-5, -3], [2, 3, 4])
+balanceExposure(S1C, ASIA, 3_920_000, [-6, -2], [1, 2, 3, 7, 8, 9])
+balanceExposure(S1C, RTM, 400_000, [-5, -3], [2, 3, 4])
+// S4 (the queue's first enquiry) also trades with Rotterdam, so its restricted "other BUs" line
+// carries a real amount: own BU $5.21M + other BUs $2.40M = $7.61M group exposure.
+balanceExposure(S4C, ASIA, 5_210_000, [-6, -2], [1, 2, 5, 6, 8])
+balanceExposure(S4C, RTM, 2_400_000, [-6, -2], [1, 2, 3, 4, 5, 6])
 
 // (d) S1 average premium = $10.00 so the suggested premium is exactly $13.00. Touch paid deals only.
 {
@@ -834,6 +874,7 @@ assert(S4_WIN.some((d) => freeBarges(S4, d).length > 0), 'S4 has a free barge')
 assert(marginPerMt(S4, s4Prem) >= 3, 'S4 margin ≥ $3/mt')
 
 assert(S3_VESSEL.screening === 'FLAG', 'S3 vessel flagged')
+assert(Math.abs(exposure(ASIA, S4C) - 5_210_000) < 500 && Math.abs(exposure(RTM, S4C) - 2_400_000) < 500, `S4 exposure split $5.21M + $2.40M (got ${exposure(ASIA, S4C)} + ${exposure(RTM, S4C)})`)
 
 // ───────────────────────────── assign ids ─────────────────────────────
 
