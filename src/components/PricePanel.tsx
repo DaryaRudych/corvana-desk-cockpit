@@ -70,8 +70,11 @@ function PremiumSlider({
               </span>
             )}
           </div>
-          <span className="num text-zinc-400">
-            Similar quotes: {w.scope.gradeName}, {w.scope.qtyFrom.toLocaleString('en-US')}–{w.scope.qtyTo.toLocaleString('en-US')} mt, last {w.scope.months} months, {w.scope.customers} · n = {w.n}
+          <span className="num inline-flex items-center gap-1 text-zinc-400">
+            n = {w.n} similar quotes
+            <InfoTip label="Which quotes count as similar">
+              {w.scope.gradeName}, {w.scope.qtyFrom.toLocaleString('en-US')}–{w.scope.qtyTo.toLocaleString('en-US')} mt, last {w.scope.months} months, {w.scope.customers}.
+            </InfoTip>
           </span>
         </div>
       )}
