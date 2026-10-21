@@ -211,8 +211,12 @@ export function ActionBar({
   const move = query('suggested_move', { enquiryId }, user).value
   const blocked = move?.move === 'BLOCKED'
   // The AI recommends the action, not the price: the badge sits on the button's edge, apart from its label.
+  // The rule recommends a move at its suggested premium. Once the trader prices elsewhere, the
+  // recommendation no longer applies, so the badge only shows at that premium (Decline is price-free).
+  const atRulePrice = move?.premium == null || terms.premium === move.premium
   const recTag = (m: Move) =>
-    move?.move === m && (
+    move?.move === m &&
+    atRulePrice && (
       <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-2 py-px text-[9px] font-bold tracking-wide text-white uppercase shadow-sm ring-2 ring-white">
         Recommended
       </span>
