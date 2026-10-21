@@ -15,14 +15,16 @@ export interface Verdict {
 export const CARD = 'rounded-2xl bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_16px_rgba(16,24,40,0.05)]'
 
 /** Decision card: a title and its one-line answer as a status pill. Same frame for every card. */
-export function Card({ title, verdict, children }: { title: string; verdict: Verdict; children: ReactNode }) {
+export function Card({ title, verdict, children }: { title: string; verdict?: Verdict; children: ReactNode }) {
   return (
     <section className={`flex flex-col ${CARD}`}>
       <header className="flex flex-col items-start gap-1.5 px-5 pt-4">
         <h2 className="text-base leading-snug font-semibold tracking-tight whitespace-nowrap text-zinc-900">{title}</h2>
-        <Pill tone={verdict.tone} className="whitespace-nowrap">
-          {verdict.label}
-        </Pill>
+        {verdict && (
+          <Pill tone={verdict.tone} className="whitespace-nowrap">
+            {verdict.label}
+          </Pill>
+        )}
       </header>
       <div className="flex flex-1 flex-col gap-4 px-5 pt-4 pb-5">{children}</div>
     </section>
@@ -131,6 +133,23 @@ export function DetailRestricted({ message }: { message: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400" title={message}>
       <LockIcon className="size-2.5" /> detail restricted
+    </span>
+  )
+}
+
+/** ⓘ with a hover/focus tooltip. Rule thresholds and scopes live here, not inline. */
+export function InfoTip({ children, label = 'More information' }: { children: ReactNode; label?: string }) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <span tabIndex={0} aria-label={label} className="flex size-3.5 cursor-help items-center justify-center rounded-full border border-zinc-300 text-[9px] font-bold text-zinc-400 group-hover:border-zinc-500 group-hover:text-zinc-600 focus:outline-none">
+        i
+      </span>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-5 left-1/2 z-30 w-60 -translate-x-1/2 rounded-lg bg-zinc-900 px-3 py-2 text-left text-xs leading-snug font-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+      >
+        {children}
+      </span>
     </span>
   )
 }
