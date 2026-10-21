@@ -315,7 +315,7 @@ const [S1C, S2C, S3C, S4C] = customers
 Object.assign(S1C, { weight: 0.75, basePremium: 10, lateMean: 4, claimProb: 0.05, terms: 30, tradesRtm: false, rtmPremiumOffset: 6 })
 Object.assign(S2C, { basePremium: 11, lateMean: 1, tradesRtm: false })
 Object.assign(S3C, { basePremium: 9, lateMean: 1, tradesRtm: false })
-Object.assign(S4C, { weight: 1.4, basePremium: 14, lateMean: 0, claimProb: 0, terms: 30, tradesRtm: false })
+Object.assign(S4C, { weight: 0.6, basePremium: 14, lateMean: 0, claimProb: 0, terms: 30, tradesRtm: false, rtmPremiumOffset: 3 })
 const SCENARIO_CUSTOMERS = new Set([S1C.id, S2C.id, S3C.id, S4C.id])
 
 const S3_VESSEL = S3C.vessels[0]
@@ -711,10 +711,10 @@ const S4 = newEnquiry(ASIA, S4C, NOW_MIN - 185, {
 }
 
 // (c) Group exposure: $3.92M Asia + $0.40M Rotterdam, balanced with contracted-not-delivered deals.
-function balanceExposure(desk: DeskCfg, target: number, recDays: [number, number], deliveryDays: number[]): void {
-  let gap = round2(target - exposure(desk, S1C))
-  assert(gap >= 190_000, `${desk.code} S1 exposure from history is too close to target (gap ${gap})`)
-  const premium = S1C.basePremium + (desk === RTM ? S1C.rtmPremiumOffset : 0)
+function balanceExposure(c: Customer, desk: DeskCfg, target: number, recDays: [number, number], deliveryDays: number[]): void {
+  let gap = round2(target - exposure(desk, c))
+  assert(gap >= 190_000, `${desk.code} ${c.name} exposure from history is too close to target (gap ${gap})`)
+  const premium = c.basePremium + (desk === RTM ? c.rtmPremiumOffset : 0)
   const parts = Math.ceil(gap / 1_300_000)
   for (let i = 0; i < parts; i++) {
     const part = i === parts - 1 ? gap : round2(gap / (parts - i))
@@ -722,9 +722,9 @@ function balanceExposure(desk: DeskCfg, target: number, recDays: [number, number
     const b = benchOn('GRD_VLSFO', dayOf(recMin))
     const qty = Math.round(part / (b + premium))
     const slot = findSlot(desk, 'GRD_VLSFO', qty, shuffle(deliveryDays))
-    assert(slot !== null, `${desk.code} S1 balancing deal needs a barge`)
-    const enq = newEnquiry(desk, S1C, recMin, {
-      vessel: S1C.vessels[1],
+    assert(slot !== null, `${desk.code} ${c.name} balancing deal needs a barge`)
+    const enq = newEnquiry(desk, c, recMin, {
+      vessel: c.vessels[1],
       grade: 'GRD_VLSFO',
       qty,
       winStart: slot!.day,
@@ -734,8 +734,12 @@ function balanceExposure(desk: DeskCfg, target: number, recDays: [number, number
     gap = round2(gap - qty * round2(part / qty))
   }
 }
-balanceExposure(ASIA, 3_920_000, [-6, -2], [1, 2, 3, 7, 8, 9])
-balanceExposure(RTM, 400_000, [-5, -3], [2, 3, 4])
+balanceExposure(S1C, ASIA, 3_920_000, [-6, -2], [1, 2, 3, 7, 8, 9])
+balanceExposure(S1C, RTM, 400_000, [-5, -3], [2, 3, 4])
+// S4 (the queue's first enquiry) also trades with Rotterdam, so its restricted "other BUs" line
+// carries a real amount: own BU $5.21M + other BUs $2.40M = $7.61M group exposure.
+balanceExposure(S4C, ASIA, 5_210_000, [-6, -2], [1, 2, 5, 6, 8])
+balanceExposure(S4C, RTM, 2_400_000, [-6, -2], [1, 2, 3, 4, 5, 6])
 
 // (d) S1 average premium = $10.00 so the suggested premium is exactly $13.00. Touch paid deals only.
 {
@@ -836,6 +840,7 @@ assert(S4_WIN.some((d) => freeBarges(S4, d).length > 0), 'S4 has a free barge')
 assert(marginPerMt(S4, s4Prem) >= 3, 'S4 margin ≥ $3/mt')
 
 assert(S3_VESSEL.screening === 'FLAG', 'S3 vessel flagged')
+assert(Math.abs(exposure(ASIA, S4C) - 5_210_000) < 500 && Math.abs(exposure(RTM, S4C) - 2_400_000) < 500, `S4 exposure split $5.21M + $2.40M (got ${exposure(ASIA, S4C)} + ${exposure(RTM, S4C)})`)
 
 // ───────────────────────────── assign ids ─────────────────────────────
 

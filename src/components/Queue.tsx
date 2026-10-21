@@ -14,7 +14,7 @@ export function Queue({ rows, selectedId, onSelect }: { rows: QueueRow[]; select
           <h2 className="text-sm font-semibold text-zinc-900">
             Open enquiries <span className="num ml-1 rounded-full bg-zinc-100 px-1.5 py-px text-[11px] font-semibold text-zinc-600">{rows.length}</span>
           </h2>
-          <span className="text-[11px] text-zinc-400">blocked last</span>
+          <span className="text-[11px] text-zinc-400" title="Sorted by time to quote due; enquiries blocked by a compliance flag go last. Credit and No-barge badges are issues to counter, not blocks.">by due time · compliance blocks last</span>
         </div>
         <div className="mt-2 grid grid-cols-[64px_1fr_auto] gap-x-2 text-[10px] font-medium text-zinc-400">
           <span>Due in</span>

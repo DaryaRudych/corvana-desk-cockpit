@@ -26,7 +26,10 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
   const screeningDetail = query('vessel_screening_detail', p, user)
   const blocked = query('compliance_check', p, user).value === 'FLAG'
 
-  const after = query('credit_headroom_after_deal', termsParams(enquiryId, terms), user)
+  const live = termsParams(enquiryId, terms)
+  const after = query('credit_headroom_after_deal', live, user)
+  const dealUse = query('deal_credit_use', live, user)
+  const price = query('quoted_price', live, user)
   const before = query('credit_headroom_before_deal', p, user)
   const limit = query('group_credit_limit', p, user)
   const exposure = query('group_exposure', p, user)
@@ -69,8 +72,14 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
             caption={
               <>
                 <span className="num">
-                  At {usdMt(terms.premium)}/mt × {mt(terms.quantity)}
-                  {terms.letterOfCredit && ', under letter of credit'}
+                  {terms.letterOfCredit ? (
+                    <>This deal uses no customer credit: letter of credit</>
+                  ) : (
+                    <>
+                      This deal adds <MetricValue r={dealUse} className="font-medium text-zinc-700" /> ({mt(terms.quantity)} × <MetricValue r={price} format={(v: number) => usdMt(v)} />
+                      ), owed until paid
+                    </>
+                  )}
                 </span>
                 <br />
                 Group limit <MetricValue r={limit} className="font-medium text-zinc-700" />

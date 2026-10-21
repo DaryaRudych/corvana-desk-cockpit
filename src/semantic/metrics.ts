@@ -204,9 +204,14 @@ function terms(ctx: ComputeCtx, p: TermsParams) {
   const quantity = p.quantity ?? e.quantity_mt
   return { e, premium, quantity, price: round2(benchmarkToday(ctx, e.grade_id) + premium) }
 }
+/** What the customer owes for this deal from delivery until payment: the whole invoice, not the premium. */
+const dealCreditUse = (ctx: ComputeCtx, p: TermsParams) => {
+  const { quantity, price } = terms(ctx, p)
+  return p.letterOfCredit ? 0 : round2(quantity * price)
+}
 const headroomAfter = (ctx: ComputeCtx, p: TermsParams) => {
-  const { e, quantity, price } = terms(ctx, p)
-  return round2(headroomBefore(ctx, e.customer_id) - (p.letterOfCredit ? 0 : quantity * price))
+  const { e } = terms(ctx, p)
+  return round2(headroomBefore(ctx, e.customer_id) - dealCreditUse(ctx, p))
 }
 
 function bargingPerMt(ctx: ComputeCtx, deskId: string): number {
@@ -587,12 +592,28 @@ export const METRICS = {
     kind: 'metric',
     compute: (ctx, p: EnquiryParams) => headroomBefore(ctx, enquiryOf(ctx, p.enquiryId).customer_id),
   }),
+  deal_credit_use: defineMetric({
+    id: 'deal_credit_use',
+    name: 'Credit used by this deal',
+    definition:
+      'What the customer will owe for this deal from delivery until they pay (payment terms, typically 30 days): the whole invoice, quantity × quoted price, not just the premium. Under a letter of credit the bank carries it, so it uses no customer credit.',
+    formula: 'quantity × (benchmark + premium); 0 under a letter of credit',
+    owner: 'Credit',
+    certified: true,
+    certifiedOn: '2026-09-01',
+    sourceTables: ['fct_market_price'],
+    scope: 'group',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'usd',
+    kind: 'metric',
+    compute: (ctx, p: TermsParams) => dealCreditUse(ctx, p),
+  }),
   credit_headroom_after_deal: defineMetric({
     id: 'credit_headroom_after_deal',
     name: 'Credit headroom after this deal',
     definition:
-      'Group credit left if this deal is done at these terms. Negative means the deal breaches the limit. A deal secured by a letter of credit uses no customer credit.',
-    formula: 'group credit limit − group exposure − quantity × (benchmark + premium); deal value counts as 0 under a letter of credit',
+      'Group credit left once this deal is delivered and invoiced, before the customer pays. Negative means the deal breaches the limit. A deal secured by a letter of credit uses no customer credit.',
+    formula: 'group credit limit − group exposure − credit used by this deal (quantity × quoted price)',
     owner: 'Credit',
     certified: true,
     certifiedOn: '2026-09-01',
