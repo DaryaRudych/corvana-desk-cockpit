@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { mt, usd, usdMt } from '../lib/format'
 import { businessUnitName, query, type QueryResult, type UserContext } from '../semantic/query'
 import { AlertIcon, ChevronIcon } from './Icons'
 import { termsParams, type Terms } from './terms'
@@ -27,6 +28,8 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
 
   const live = termsParams(enquiryId, terms)
   const after = query('credit_headroom_after_deal', live, user)
+  const dealUse = query('deal_credit_use', live, user)
+  const price = query('quoted_price', live, user)
   const before = query('credit_headroom_before_deal', p, user)
   const limit = query('group_credit_limit', p, user)
   const exposure = query('group_exposure', p, user)
@@ -81,6 +84,13 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
             </ListRow>
             <ListRow label="Headroom before this deal">
               <MetricValue r={before} />
+            </ListRow>
+            {/* The whole invoice is owed until paid, so this is what the deal takes from headroom. */}
+            <ListRow
+              label="This deal uses"
+              hint={terms.letterOfCredit ? 'letter of credit: no customer credit' : <>{mt(terms.quantity)} × <MetricValue r={price} format={(v: number) => usdMt(v)} />, owed until paid</>}
+            >
+              <MetricValue r={dealUse} format={(v: number) => (v ? `−${usd(v)}` : usd(0))} />
             </ListRow>
           </List>
 
