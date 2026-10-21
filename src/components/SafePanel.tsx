@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { businessUnitName, query, type QueryResult, type UserContext } from '../semantic/query'
-import { mt, usdMt } from '../lib/format'
 import { AlertIcon, ChevronIcon } from './Icons'
 import { termsParams, type Terms } from './terms'
 import { Card, DetailRestricted, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
@@ -28,8 +27,6 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
 
   const live = termsParams(enquiryId, terms)
   const after = query('credit_headroom_after_deal', live, user)
-  const dealUse = query('deal_credit_use', live, user)
-  const price = query('quoted_price', live, user)
   const before = query('credit_headroom_before_deal', p, user)
   const limit = query('group_credit_limit', p, user)
   const exposure = query('group_exposure', p, user)
@@ -69,25 +66,11 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
           <Hero
             label="Credit headroom after this deal"
             tone={negative ? 'bad' : 'ok'}
-            caption={
-              <>
-                <span className="num">
-                  {terms.letterOfCredit ? (
-                    <>This deal uses no customer credit: letter of credit</>
-                  ) : (
-                    <>
-                      This deal adds <MetricValue r={dealUse} className="font-medium text-zinc-700" /> ({mt(terms.quantity)} × <MetricValue r={price} format={(v: number) => usdMt(v)} />
-                      ), owed until paid
-                    </>
-                  )}
-                </span>
-                <br />
-                Group limit <MetricValue r={limit} className="font-medium text-zinc-700" />
-                {negative && ' · this deal breaches it'}
-              </>
-            }
           >
             <MetricValue r={after} />
+            <span className="ml-1.5 text-sm font-medium text-zinc-500">
+              of <MetricValue r={limit} className="text-zinc-700" /> group limit
+            </span>
           </Hero>
 
           <List>
