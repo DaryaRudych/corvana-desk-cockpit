@@ -1,6 +1,7 @@
 // Pricing & Margin: the governed suggested-premium RULE (not AI), the trader's premium, and what
-// the deal earns. Compact by default (numbers over words); the build-up and the economics
-// waterfall open on demand. Rule thresholds live in tooltips and the definitions panel only.
+// the deal earns. Compact by default (numbers over words): the build-up sits in the ⓘ by the pill,
+// the economics waterfall opens on demand. Rule thresholds live in tooltips and the definitions
+// panel only.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { mt, usdCompact, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
@@ -170,7 +171,6 @@ export function PricePanel({
   onPremium: (premium: number) => void
 }) {
   const openDefinition = useOpenDefinition()
-  const [showBuild, setShowBuild] = useState(false)
   const [showEconomics, setShowEconomics] = useState(false)
   const p = { enquiryId }
   const blocked = query('compliance_check', p, user).value === 'FLAG'
@@ -199,9 +199,6 @@ export function PricePanel({
   const custPrem = query('customer_avg_premium', p, user)
   const deskPrem = query('desk_avg_premium', p, user)
   const deals = query('customer_deal_count', p, user)
-  const custClaim = query('customer_claim_share', p, user)
-  const deskClaim = query('desk_claim_share', p, user)
-  const dpd = query('days_past_due', p, user)
   const cost = query('our_cost', p, user)
   const barging = query('barging_cost_per_mt', p, user)
   const price = query('quoted_price', live, user)
@@ -274,53 +271,6 @@ export function PricePanel({
           ))}
           {!bd.claimAdj && !bd.dpdAdj && ' · no adjustments'}
         </div>
-        <Toggle label="How it's built" open={showBuild} onClick={() => setShowBuild(!showBuild)} />
-        {showBuild && (
-          <table className="mt-1 w-full text-xs text-zinc-600">
-            <tbody>
-              <Row
-                label={`${fromCustomer ? 'Cust. avg' : 'Desk avg'} · ${deals.value ?? 0} deals`}
-                context={
-                  fromCustomer && (
-                    <>
-                      desk <MetricValue r={deskPrem} format={(v: number) => plain(v)} />
-                    </>
-                  )
-                }
-              >
-                <MetricValue r={base} format={(v: number) => plain(v)} />
-              </Row>
-              <Row
-                label="Claims"
-                context={
-                  <span className="inline-flex items-center gap-1">
-                    <MetricValue r={custClaim} /> vs <MetricValue r={deskClaim} />
-                    <InfoTip>+$2 when the customer’s claim share is more than 2× the desk’s (last 12 months).</InfoTip>
-                  </span>
-                }
-              >
-                {bd.claimAdj ? <MetricValue r={b} format={() => signed(bd.claimAdj)} className="text-amber-600" /> : <span className="text-zinc-400">—</span>}
-              </Row>
-              <Row
-                label="Late pay"
-                context={
-                  <span className="inline-flex items-center gap-1">
-                    <MetricValue r={dpd} format={(v: number) => `${v.toFixed(1)} days`} />
-                    <InfoTip>+$1 when the customer’s average days past due is more than 3 (invoices due in the last 12 months).</InfoTip>
-                  </span>
-                }
-              >
-                {bd.dpdAdj ? <MetricValue r={b} format={() => signed(bd.dpdAdj)} className="text-amber-600" /> : <span className="text-zinc-400">—</span>}
-              </Row>
-              <Row label="Rounding to $0.50">
-                <MetricValue r={b} format={() => signed(bd.rounding)} />
-              </Row>
-              <Row label="Suggested" strong>
-                <MetricValue r={suggested} format={(v: number) => plain(v)} className="text-indigo-700" />
-              </Row>
-            </tbody>
-          </table>
-        )}
       </div>
 
       {/* C. Premium slider */}
