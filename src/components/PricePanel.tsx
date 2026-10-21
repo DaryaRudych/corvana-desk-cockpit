@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { formatValue, mt, usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { termsParams, type Terms } from './terms'
-import { Card, Hero, InfoTip, List, ListRow, MetricValue, type Verdict } from './ui'
+import { ChevronIcon } from './Icons'
+import { Card, Hero, InfoTip, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -36,8 +38,6 @@ function PremiumSlider({
           {w?.wonP25 != null && w.wonP75 != null && (
             <div className="absolute inset-y-0 rounded-full bg-emerald-300" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
           )}
-          {w?.lowestLost != null && <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded bg-red-400" style={{ left: x(w.lowestLost) }} />}
-          {customerAvg !== null && <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded bg-zinc-500" style={{ left: x(customerAvg) }} />}
           <div className="absolute -top-1.5 h-[18px] w-0.5 -translate-x-1/2 rounded bg-indigo-300" style={{ left: x(suggested) }} />
         </div>
         <input
@@ -50,6 +50,11 @@ function PremiumSlider({
           aria-label="Premium, $/mt"
           className="premium-slider relative"
         />
+        {/* Reference ticks drawn ABOVE the thumb, and taller than it, so they stay visible when it sits on them. */}
+        <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: THUMB / 2, right: THUMB / 2 }}>
+          {w?.lowestLost != null && <div className="absolute top-0.5 bottom-0.5 w-0.5 -translate-x-1/2 rounded bg-red-500" style={{ left: x(w.lowestLost) }} />}
+          {customerAvg !== null && <div className="absolute -top-1 -bottom-1 -translate-x-1/2 border-l-2 border-dashed border-zinc-700" style={{ left: x(customerAvg) }} />}
+        </div>
       </div>
       <div className="num mt-1 flex justify-between text-[10px] text-zinc-400">
         <span>${MIN}</span>
@@ -66,7 +71,7 @@ function PremiumSlider({
             </span>
             {customerAvg !== null && (
               <span className="inline-flex items-center gap-1">
-                <i className="inline-block h-2.5 w-0.5 rounded bg-zinc-500" /> this customer’s avg {usdMt(customerAvg)}
+                <i className="inline-block h-2.5 border-l-2 border-dashed border-zinc-700" /> this customer’s avg {usdMt(customerAvg)}
               </span>
             )}
           </div>
@@ -121,6 +126,7 @@ export function PricePanel({
   editable: boolean
   onPremium: (premium: number) => void
 }) {
+  const [showMath, setShowMath] = useState(false)
   const p = { enquiryId }
   const blocked = query('compliance_check', p, user).value === 'FLAG'
   const grade = query('enquiry_details', p, user).value?.gradeName
@@ -225,28 +231,59 @@ export function PricePanel({
       </div>
 
       {/* Deal economics at your premium: price − cost − barging = margin. */}
-      <List title={`Deal economics at your premium, ${mt(terms.quantity)}`}>
-        {benchmarkRow}
-        {/* Operators sit with the numbers, so the column reads as the sum. */}
-        <ListRow label="Your premium">
-          <span className="num">+{usdMt(terms.premium)}</span>
-        </ListRow>
-        <ListRow label={<span className="font-medium text-zinc-900">Quoted price</span>}>
-          <MetricValue r={price} format={(v: number) => `= ${usdMt(v)}/mt`} />
-        </ListRow>
-        <ListRow label="Our cost">
-          <MetricValue r={cost} format={(v: number) => `−${usdMt(v)}`} />
-        </ListRow>
-        <ListRow label="Barging" hint="desk 12-month average">
-          <MetricValue r={barging} format={(v: number) => `−${usdMt(v)}`} />
-        </ListRow>
-        <ListRow label={<span className="font-medium text-zinc-900">Margin per tonne</span>}>
-          <MetricValue r={marginMt} format={(v: number) => `= ${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
-        </ListRow>
-        <ListRow label={<span className="font-medium text-zinc-900">Expected margin</span>} hint={`× ${mt(terms.quantity)}`}>
-          <MetricValue r={margin} format={(v: number) => usd(v)} className={`text-[15px] ${thinMargin ? 'text-amber-600' : ''}`} />
-        </ListRow>
-      </List>
+      {/* The two outcomes, prominent; the arithmetic behind them on demand. */}
+      <div className="grid grid-cols-2 gap-2">
+        <Tile
+          label="Quoted price"
+          sub={
+            <span className="num whitespace-nowrap">
+              <MetricValue r={bench} format={(v: number) => usdMt(v)} /> {grade} benchmark
+            </span>
+          }
+        >
+          <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
+        </Tile>
+        <Tile label="Expected margin" sub={<MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt${thinMargin ? ' · under $3 floor' : ''}`} />} subTone={thinMargin ? 'warn' : 'neutral'}>
+          <MetricValue r={margin} format={(v: number) => usd(v)} className={thinMargin ? 'text-amber-600' : ''} />
+        </Tile>
+      </div>
+      <div className="-mt-1">
+        <button
+          type="button"
+          onClick={() => setShowMath(!showMath)}
+          aria-expanded={showMath}
+          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+        >
+          <ChevronIcon className={`size-3 transition-transform ${showMath ? 'rotate-90' : ''}`} />
+          How it's calculated, {mt(terms.quantity)}
+        </button>
+        {showMath && (
+          <div className="mt-2">
+        <List>
+          {benchmarkRow}
+          {/* Operators sit with the numbers, so the column reads as the sum. */}
+          <ListRow label="Your premium">
+            <span className="num">+{usdMt(terms.premium)}</span>
+          </ListRow>
+          <ListRow label={<span className="font-medium text-zinc-900">Quoted price</span>}>
+            <MetricValue r={price} format={(v: number) => `= ${usdMt(v)}/mt`} />
+          </ListRow>
+          <ListRow label="Our cost">
+            <MetricValue r={cost} format={(v: number) => `−${usdMt(v)}`} />
+          </ListRow>
+          <ListRow label="Barging" hint="desk 12-month average">
+            <MetricValue r={barging} format={(v: number) => `−${usdMt(v)}`} />
+          </ListRow>
+          <ListRow label={<span className="font-medium text-zinc-900">Margin per tonne</span>}>
+            <MetricValue r={marginMt} format={(v: number) => `= ${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
+          </ListRow>
+          <ListRow label={<span className="font-medium text-zinc-900">Expected margin</span>} hint={`× ${mt(terms.quantity)}`}>
+            <MetricValue r={margin} format={(v: number) => usd(v)} className={`text-[15px] ${thinMargin ? 'text-amber-600' : ''}`} />
+          </ListRow>
+        </List>
+          </div>
+        )}
+      </div>
     </Card>
   )
 }
