@@ -222,7 +222,32 @@ export function PricePanel({
   const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
 
   return (
-    <Card title="Pricing & Margin" verdict={verdict}>
+    <Card
+      title="Pricing & Margin"
+      verdict={verdict}
+      verdictInfo={
+        <InfoTip label="How the suggested premium is built" below align="right">
+          <span className="mb-1.5 block font-semibold">How it's built</span>
+          <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+            <span className="text-zinc-300">
+              {fromCustomer ? 'Cust. avg' : 'Desk avg'} · {deals.value ?? 0} deals
+            </span>
+            <span>{plain(bd.base)}</span>
+            <span className="text-zinc-300">Claims</span>
+            <span>{bd.claimAdj ? signed(bd.claimAdj) : '—'}</span>
+            <span className="text-zinc-300">Late pay</span>
+            <span>{bd.dpdAdj ? signed(bd.dpdAdj) : '—'}</span>
+            <span className="text-zinc-300">Rounding to $0.50</span>
+            <span>{signed(bd.rounding)}</span>
+            <span className="mt-1 border-t border-zinc-700 pt-1 font-semibold">Suggested</span>
+            <span className="mt-1 border-t border-zinc-700 pt-1 font-semibold">{plain(bd.value)}</span>
+          </span>
+          <span className="mt-1.5 block text-[11px] text-zinc-400">
+            Rule: +$2 if claim share is over 2× the desk’s, +$1 if average days past due is over 3, then round to $0.50.
+          </span>
+        </InfoTip>
+      }
+    >
       {/* B. Suggested premium (rule) */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 text-xs text-zinc-500">
