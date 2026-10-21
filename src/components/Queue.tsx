@@ -23,20 +23,12 @@ export function Queue({ rows, selectedId, onSelect }: { rows: QueueRow[]; select
         </div>
       </div>
       <ol className="min-h-0 flex-1 overflow-y-auto">
-        {rows.map((r, i) => {
+        {rows.map((r) => {
           const selected = r.enquiryId === selectedId
           const blocked = r.move === 'BLOCKED'
           const urgent = r.minutesToDue < 60
-          // Make the sort visible: compliance-blocked enquiries form their own group at the bottom.
-          const firstBlocked = blocked && rows[i - 1]?.move !== 'BLOCKED'
-          const blockedCount = rows.filter((x) => x.move === 'BLOCKED').length
           return (
             <li key={r.enquiryId}>
-              {firstBlocked && (
-                <div className="sticky top-0 border-y border-red-100 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-700">
-                  Blocked by compliance ({blockedCount}): listed last, whatever their due time
-                </div>
-              )}
               <button
                 type="button"
                 onClick={() => onSelect(r.enquiryId)}
