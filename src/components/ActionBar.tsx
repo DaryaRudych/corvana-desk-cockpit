@@ -8,7 +8,7 @@ import { CARD, MetricValue, Pill } from './ui'
 
 // Pills: solid primary, thin-outlined alternatives (clearly clickable, not flat boxes).
 const BUTTON =
-  'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:pointer-events-none disabled:opacity-40'
+  'relative inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:pointer-events-none disabled:opacity-40'
 const PRIMARY = `${BUTTON} bg-indigo-600 text-white shadow-[0_2px_8px_rgba(79,70,229,0.28)] hover:bg-indigo-700`
 const OUTLINE = `${BUTTON} border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50`
 const SECONDARY = 'shrink-0 rounded-full px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
@@ -210,9 +210,12 @@ export function ActionBar({
   const e = query('enquiry_details', { enquiryId }, user).value!
   const move = query('suggested_move', { enquiryId }, user).value
   const blocked = move?.move === 'BLOCKED'
-  const recTag = (m: Move, onPrimary = false) =>
+  // The AI recommends the action, not the price: the badge sits on the button's edge, apart from its label.
+  const recTag = (m: Move) =>
     move?.move === m && (
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${onPrimary ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'}`}>Recommended</span>
+      <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-2 py-px text-[9px] font-bold tracking-wide text-white uppercase shadow-sm ring-2 ring-white">
+        Recommended
+      </span>
     )
 
   if (e.status !== 'open') {
@@ -231,7 +234,7 @@ export function ActionBar({
   return (
     <div className={`px-5 py-4 ${CARD} shadow-[0_4px_24px_rgba(16,24,40,0.10)]`}>
       {mode === 'review' && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-1.5">
           <button
             type="button"
             disabled={blocked}
@@ -239,7 +242,7 @@ export function ActionBar({
             className={PRIMARY}
           >
             {blocked ? 'Quote' : `Quote at ${usdMt(terms.premium)}`}
-            {recTag('QUOTE', true)}
+            {recTag('QUOTE')}
           </button>
           <button type="button" disabled={blocked} onClick={() => onMode('counter')} className={OUTLINE}>
             Counter

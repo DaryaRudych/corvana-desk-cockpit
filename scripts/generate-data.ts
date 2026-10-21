@@ -290,7 +290,7 @@ const customers: Customer[] = CUSTOMER_NAMES.map(([name, parent], i) => {
     name,
     parent,
     weight: uniform(0.6, 1.25),
-    basePremium: roundTo(clamp(normal(9, 2.3), 4, 15), 0.5),
+    basePremium: roundTo(clamp(normal(9, 1.3), 6.5, 12), 0.5),
     rtmPremiumOffset: roundTo(uniform(2, 5), 0.5),
     lateMean: LATE_PAYERS.has(i) ? randInt(5, 7) : pick([0, 0, 1, 1, 1, 2, 2]),
     claimProb: 0.045,
@@ -523,8 +523,10 @@ function generateHistory(desk: DeskCfg, pool: Customer[]): void {
     const action: 'quote' | 'counter' = rand() < 0.8 ? 'quote' : 'counter'
     const base = enq.customer.basePremium + (desk === RTM ? enq.customer.rtmPremiumOffset : 0)
     const sizeAdj = enq.qty < 800 ? 1 : enq.qty > 2000 ? -1 : 0
-    const premium = clamp(roundTo(base + sizeAdj + normal(0, 2.2), 0.5), 3, 20)
-    const winP = (1 / (1 + Math.exp((premium - (base + sizeAdj + 0.8)) / 1.3))) * (action === 'counter' ? 0.8 : 1)
+    // Customers accept up to roughly their usual premium; above it, wins fall off quickly.
+    // Losses therefore sit mostly above the won band, so "lowest lost" is a real price signal.
+    const premium = clamp(roundTo(base + sizeAdj + normal(0, 1.6), 0.5), 3, 20)
+    const winP = (1 / (1 + Math.exp((premium - (base + sizeAdj + 0.8)) / 0.45))) * (action === 'counter' ? 0.8 : 1)
     if (rand() >= winP) {
       enq.action = action
       enq.status = action === 'quote' ? 'quoted' : 'countered'

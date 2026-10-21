@@ -1,8 +1,8 @@
-import { usd, usdMt } from '../lib/format'
+import { mt, usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { termsParams, type Terms } from './terms'
-import { Card, Hero, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
+import { Card, Hero, List, ListRow, MetricValue, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -15,7 +15,19 @@ const THUMB = 18 // px; the track is inset by half a thumb so marks line up with
  * Quote builder: the premium slider. Its track shows the win range on similar deals
  * (won p25–p75 band, lowest lost premium, n) and a tick at the suggested premium.
  */
-function PremiumSlider({ w, suggested, value, onChange }: { w: WinRange | null; suggested: number; value: number; onChange: (v: number) => void }) {
+function PremiumSlider({
+  w,
+  suggested,
+  customerAvg,
+  value,
+  onChange,
+}: {
+  w: WinRange | null
+  suggested: number
+  customerAvg: number | null
+  value: number
+  onChange: (v: number) => void
+}) {
   const x = (v: number) => `${((Math.min(Math.max(v, MIN), MAX) - MIN) / (MAX - MIN)) * 100}%`
   return (
     <div>
@@ -25,7 +37,8 @@ function PremiumSlider({ w, suggested, value, onChange }: { w: WinRange | null; 
             <div className="absolute inset-y-0 rounded-full bg-emerald-300" style={{ left: x(w.wonP25), width: `calc(${x(w.wonP75)} - ${x(w.wonP25)})` }} />
           )}
           {w?.lowestLost != null && <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded bg-red-400" style={{ left: x(w.lowestLost) }} />}
-          <div className="absolute -top-1.5 h-[18px] w-0.5 -translate-x-1/2 rounded bg-indigo-300" style={{ left: x(suggested) }} title={`Suggested ${usdMt(suggested)}`} />
+          {customerAvg !== null && <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded bg-zinc-500" style={{ left: x(customerAvg) }} />}
+          <div className="absolute -top-1.5 h-[18px] w-0.5 -translate-x-1/2 rounded bg-indigo-300" style={{ left: x(suggested) }} />
         </div>
         <input
           type="range"
@@ -43,14 +56,23 @@ function PremiumSlider({ w, suggested, value, onChange }: { w: WinRange | null; 
         <span>${MAX}</span>
       </div>
       {w && (
-        <div className="num mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-zinc-500">
-          <span className="inline-flex items-center gap-1">
-            <i className="inline-block h-1.5 w-3 rounded-full bg-emerald-300" /> won {w.wonP25 != null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'}
+        <div className="mt-1.5 flex flex-col gap-1 text-[11px] text-zinc-500">
+          <div className="num flex flex-wrap gap-x-3 gap-y-0.5">
+            <span className="inline-flex items-center gap-1">
+              <i className="inline-block h-1.5 w-3 rounded-full bg-emerald-300" /> won p25–p75 {w.wonP25 != null ? `${usdMt(w.wonP25)}–${usdMt(w.wonP75!)}` : '—'}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <i className="inline-block h-2.5 w-0.5 rounded bg-red-400" /> lowest lost {w.lowestLost != null ? usdMt(w.lowestLost) : '—'}
+            </span>
+            {customerAvg !== null && (
+              <span className="inline-flex items-center gap-1">
+                <i className="inline-block h-2.5 w-0.5 rounded bg-zinc-500" /> this customer’s avg {usdMt(customerAvg)}
+              </span>
+            )}
+          </div>
+          <span className="num text-zinc-400">
+            Similar quotes: {w.scope.gradeName}, {w.scope.qtyFrom.toLocaleString('en-US')}–{w.scope.qtyTo.toLocaleString('en-US')} mt, last {w.scope.months} months, {w.scope.customers} · n = {w.n}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <i className="inline-block h-2.5 w-0.5 rounded bg-red-400" /> lowest lost {w.lowestLost != null ? usdMt(w.lowestLost) : '—'}
-          </span>
-          <span>n = {w.n} similar quotes</span>
         </div>
       )}
     </div>
@@ -65,11 +87,10 @@ function DeltaChip({ r }: { r: QueryResult<number> }) {
     <span className={`ml-2 inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-semibold ${style}`} title="Change vs yesterday">
       <span aria-hidden="true">{v > 0 ? '▲' : v < 0 ? '▼' : '■'}</span>
       <MetricValue r={r} format={(n: number) => usdMt(Math.abs(n))} />
+      <span className="font-normal opacity-80">vs yesterday</span>
     </span>
   )
 }
-
-const VS = ({ children }: { children: string }) => <span className="mx-1 font-normal text-zinc-400">{children}</span>
 
 export function PricePanel({
   enquiryId,
@@ -107,42 +128,55 @@ export function PricePanel({
   }
 
   const live = termsParams(enquiryId, terms)
+  const win = query('win_range_similar', p, user)
+  const b = query('suggested_premium_breakdown', p, user)
+  const bd = b.value
+  const suggested = query('suggested_premium', p, user)
   const custPrem = query('customer_avg_premium', p, user)
   const deskPrem = query('desk_avg_premium', p, user)
   const deals = query('customer_deal_count', p, user)
   const custClaim = query('customer_claim_share', p, user)
   const deskClaim = query('desk_claim_share', p, user)
-  const win = query('win_range_similar', p, user)
-  const breakdown = query('suggested_premium_breakdown', p, user).value
-  const suggested = query('suggested_premium', p, user)
+  const dpd = query('days_past_due', p, user)
   const price = query('quoted_price', live, user)
+  const barging = query('barging_cost_per_mt', p, user)
   const margin = query('expected_deal_margin', live, user)
   const marginMt = query('expected_margin_per_mt', live, user)
-  const claimRatio = custClaim.value !== null && deskClaim.value ? custClaim.value / deskClaim.value : null
   const thinMargin = (marginMt.value ?? 0) < 3
   const offSuggestion = suggested.value !== null && terms.premium !== suggested.value
   const diff = suggested.value === null ? 0 : terms.premium - suggested.value
+  const fromCustomer = bd?.baseSource === 'customer'
+  const adj = (v: number) => `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}`
 
   const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
-      <Hero
-        label="Suggested premium"
-        tone="accent"
-        caption={
-          breakdown && (
-            <span className="num">
-              {breakdown.baseSource === 'customer' ? 'Customer avg' : 'Desk avg'} {usdMt(breakdown.base)}
-              {breakdown.claimAdj > 0 && <span className="text-amber-600"> + ${breakdown.claimAdj} claims</span>}
-              {breakdown.dpdAdj > 0 && <span className="text-amber-600"> + ${breakdown.dpdAdj} late payment</span>}
-            </span>
-          )
-        }
-      >
+      <Hero label="Suggested premium" tone="accent">
         <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
         <span className="ml-1 text-sm font-medium text-zinc-400">/mt</span>
       </Hero>
+
+      {/* How the rule builds the suggestion; every line is a governed value. */}
+      {bd && (
+        <List title="How the suggestion is built">
+          <ListRow label={fromCustomer ? 'Customer 12-month average' : 'Desk average (customer has < 5 deals)'} hint={<>{deals.value ?? 0} deals with this customer · desk average <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} /></>}>
+            <MetricValue r={fromCustomer ? custPrem : deskPrem} format={(v: number) => usdMt(v)} />
+          </ListRow>
+          <ListRow label="Claims adjustment" hint={<>claim share <MetricValue r={custClaim} /> vs desk <MetricValue r={deskClaim} />; +$2 above 2× desk</>}>
+            <MetricValue r={b} format={() => adj(bd.claimAdj)} className={bd.claimAdj ? 'text-amber-600' : 'text-zinc-500'} />
+          </ListRow>
+          <ListRow label="Late-payment adjustment" hint={<>avg <MetricValue r={dpd} /> past due; +$1 above 3 days</>}>
+            <MetricValue r={b} format={() => adj(bd.dpdAdj)} className={bd.dpdAdj ? 'text-amber-600' : 'text-zinc-500'} />
+          </ListRow>
+          <ListRow label="Rounded to nearest $0.50">
+            <MetricValue r={b} format={() => adj(bd.rounding)} className="text-zinc-500" />
+          </ListRow>
+          <ListRow label={<span className="font-medium text-zinc-900">Suggested premium</span>}>
+            <MetricValue r={suggested} format={(v: number) => `${usdMt(v)}/mt`} className="text-indigo-700" />
+          </ListRow>
+        </List>
+      )}
 
       {/* Quote builder */}
       <div className="rounded-xl bg-zinc-50 px-3 pt-2.5 pb-3">
@@ -159,35 +193,32 @@ export function PricePanel({
           </span>
         </div>
         {editable ? (
-          <PremiumSlider w={win.value} suggested={suggested.value ?? 0} value={terms.premium} onChange={onPremium} />
+          <PremiumSlider w={win.value} suggested={suggested.value ?? 0} customerAvg={custPrem.value} value={terms.premium} onChange={onPremium} />
         ) : (
           <p className="mt-1 text-[11px] text-zinc-500">Response sent; terms are locked.</p>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Tile label="Quoted price">
-          <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
-        </Tile>
-        <Tile label="Expected margin" sub={<MetricValue r={marginMt} />} subTone={thinMargin ? 'warn' : 'neutral'}>
-          <MetricValue r={margin} format={(v: number) => usd(v)} className={thinMargin ? 'text-amber-600' : ''} />
-        </Tile>
-      </div>
-
-      <List>
+      {/* Deal economics at your premium: price − cost − barging = margin. */}
+      <List title={`Deal economics at your premium, ${mt(terms.quantity)}`}>
         {benchmarkRow}
-        <ListRow label="Our cost">
+        <ListRow label="+ Your premium">
+          <span className="num">{usdMt(terms.premium)}</span>
+        </ListRow>
+        <ListRow label={<span className="font-medium text-zinc-900">= Quoted price</span>}>
+          <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
+        </ListRow>
+        <ListRow label="− Our cost">
           <MetricValue r={cost} format={(v: number) => usdMt(v)} />
         </ListRow>
-        <ListRow label="Avg premium" hint={<>customer vs desk · {deals.value ?? 0} deals</>}>
-          <MetricValue r={custPrem} format={(v: number) => usdMt(v)} />
-          <VS>vs</VS>
-          <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} className="font-normal text-zinc-500" />
+        <ListRow label="− Barging" hint="desk 12-month average">
+          <MetricValue r={barging} format={(v: number) => usdMt(v)} />
         </ListRow>
-        <ListRow label="Claim share" hint="customer vs desk">
-          <MetricValue r={custClaim} className={claimRatio !== null && claimRatio > 2 ? 'text-amber-600' : ''} />
-          <VS>vs</VS>
-          <MetricValue r={deskClaim} className="font-normal text-zinc-500" />
+        <ListRow label={<span className="font-medium text-zinc-900">= Margin per tonne</span>}>
+          <MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
+        </ListRow>
+        <ListRow label={<span className="font-medium text-zinc-900">Expected margin</span>} hint={`× ${mt(terms.quantity)}`}>
+          <MetricValue r={margin} format={(v: number) => usd(v)} className={`text-[15px] ${thinMargin ? 'text-amber-600' : ''}`} />
         </ListRow>
       </List>
     </Card>

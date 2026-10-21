@@ -15,6 +15,22 @@ export interface Brief {
 
 const perMt = (v: number) => `${usdMt(v)}/mt`
 
+/** The rule's build-up in words, every figure a chip: base + adjustments, then rounding. */
+function premiumBuildUp(p: { enquiryId: string }, user: UserContext): Segment[] {
+  const bR = query('suggested_premium_breakdown', p, user)
+  const b = bR.value!
+  const fromCustomer = b.baseSource === 'customer'
+  const parts: Segment[] = [
+    fromCustomer ? 'the customer’s 12-month average of ' : 'the desk average of ',
+    chip(query(fromCustomer ? 'customer_avg_premium' : 'desk_avg_premium', p, user), { format: perMt }),
+  ]
+  if (b.claimAdj) parts.push(' + ', chip(bR, { label: `$${b.claimAdj}` }), ' for claims')
+  if (b.dpdAdj) parts.push(' + ', chip(bR, { label: `$${b.dpdAdj}` }), ' for late payment')
+  if (!b.claimAdj && !b.dpdAdj) parts.push(', with no claims or late-payment adjustment')
+  if (b.rounding) parts.push(', rounded to the nearest $0.50')
+  return parts
+}
+
 export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null {
   const p = { enquiryId }
   const moveR = query('suggested_move', p, user)
@@ -34,12 +50,10 @@ export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null
   const premium = chip(query('suggested_premium', p, user), { format: perMt })
 
   if (move.move === 'COUNTER' && move.reason === 'credit') {
-    const b = query('suggested_premium_breakdown', p, user).value
     support.push(chip(query('days_past_due', p, user)), chip(query('customer_claim_share', p, user)), chip(query('desk_claim_share', p, user)))
-    const lift = b?.dpdAdj && b?.claimAdj ? 'Late payment and a high claim share lift' : b?.dpdAdj ? 'Late payment lifts' : b?.claimAdj ? 'A high claim share lifts' : null
+    sentences.push(['The premium is ', premium, ': ', ...premiumBuildUp(p, user), '.'])
     sentences.push([
-      ...(lift ? [`${lift} the premium to `, premium, ', but credit is the reason to counter: '] : ['At ', premium, ', ']),
-      'the full ',
+      'But credit is the reason to counter: the full ',
       chip(details, { label: mt(e.quantity_mt) }),
       ' would leave ',
       chip(query('credit_headroom_after_deal', p, user)),
@@ -81,15 +95,14 @@ export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null
       chip(query('credit_headroom_after_deal', p, user), { label: 'credit holds' }),
       '.',
     ])
-    sentences.push([
-      'Quote at ',
-      premium,
-      fromCustomer ? ', built on the customer’s 12-month average of ' : ', built on the desk average of ',
-      chip(query(fromCustomer ? 'customer_avg_premium' : 'desk_avg_premium', p, user), { format: perMt }),
-      ', for an expected margin of ',
-      chip(query('expected_deal_margin', p, user)),
-      '.',
-    ])
+    sentences.push(['Quote at ', premium, ': ', ...premiumBuildUp(p, user), '.'])
+    // Say so when the customer's own history prices above the desk's won band on similar quotes.
+    const winR = query('win_range_similar', p, user)
+    const sugg = query('suggested_premium', p, user).value
+    if (fromCustomer && winR.value?.wonP75 != null && sugg !== null && sugg > winR.value.wonP75) {
+      sentences.push(['That is above the desk’s won range on similar quotes (up to ', chip(winR, { label: perMt(winR.value.wonP75) }), '), in line with what this customer pays.'])
+    }
+    sentences.push(['Expected margin ', chip(query('expected_deal_margin', p, user)), ' after our cost and barging.'])
   }
 
   return { move: move.move, sentences, basedOn: basedOn(...sentences, support) }
