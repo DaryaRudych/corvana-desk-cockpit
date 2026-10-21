@@ -20,8 +20,6 @@ export function optionLabel(o: CounterOption, fullQty: number): string {
       return `Reduce to ${mt(o.quantityMt)}`
     case 'letter_of_credit':
       return `Full ${mt(fullQty)} with letter of credit`
-    case 'payment_terms':
-      return `Shorter terms: ${o.paymentDays} days`
     case 'delivery_date':
       return `Deliver ${day(o.deliveryDate)} (${o.bargeName.replace('Corvana ', '')})`
   }
@@ -34,8 +32,6 @@ export function applyOption(t: Terms, o: CounterOption, fullQty: number): Terms 
       return { ...t, quantity: o.quantityMt, letterOfCredit: false }
     case 'letter_of_credit':
       return { ...t, quantity: fullQty, letterOfCredit: true }
-    case 'payment_terms':
-      return { ...t, paymentDays: o.paymentDays }
     case 'delivery_date':
       return { ...t, deliveryDate: o.deliveryDate }
   }

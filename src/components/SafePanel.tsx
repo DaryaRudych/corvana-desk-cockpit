@@ -37,12 +37,17 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
   const other = query('exposure_other_bus', p, user)
   const dpd = query('days_past_due', p, user)
   const negative = (after.value ?? 0) < 0
+  // Governed rule: over / at limit (< 1% of the group limit left) / within.
+  const status = query('credit_status', live, user).value
+  const fitsUpTo = query('max_quantity_within_credit', live, user)
 
   const verdict: Verdict = blocked
     ? { tone: 'bad', label: 'Blocked: compliance' }
-    : negative
+    : status === 'over'
       ? { tone: 'bad', label: 'Over credit limit' }
-      : { tone: 'ok', label: 'Clear to trade' }
+      : status === 'at_limit'
+        ? { tone: 'warn', label: 'At credit limit' }
+        : { tone: 'ok', label: 'Clear to trade' }
 
   return (
     <Card title="Compliance & Credit" verdict={verdict}>
@@ -68,7 +73,7 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
         <>
           <Hero
             label="Credit headroom after this deal"
-            tone={negative ? 'bad' : 'ok'}
+            tone={negative ? 'bad' : status === 'at_limit' ? 'warn' : 'ok'}
             caption={
               <>
                 of <MetricValue r={limit} /> group limit
@@ -92,6 +97,11 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
             >
               <MetricValue r={dealUse} format={(v: number) => usd(v)} />
             </ListRow>
+            {status === 'over' && (
+              <ListRow label="Fits within limit" hint="at this price, rounded down to 50 mt">
+                <MetricValue r={fitsUpTo} format={(v: number) => `up to ${mt(v)}`} className="text-red-600" />
+              </ListRow>
+            )}
           </List>
 
           <div>

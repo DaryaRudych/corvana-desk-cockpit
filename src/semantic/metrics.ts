@@ -64,7 +64,6 @@ export type Move = 'QUOTE' | 'COUNTER' | 'DECLINE' | 'BLOCKED'
 export type CounterOption =
   | { kind: 'quantity'; quantityMt: number }
   | { kind: 'letter_of_credit'; quantityMt: number }
-  | { kind: 'payment_terms'; paymentDays: number; note: string }
   | { kind: 'delivery_date'; deliveryDate: string; bargeName: string }
 export interface SuggestedMove {
   move: Move
@@ -88,7 +87,10 @@ const MARGIN_WATCH_BAND = 3 // amber band above the floor
 const COUNTER_DATE_DAYS = 3
 const MIN_QTY_MT = 300
 const QTY_STEP_MT = 50
-const SHORT_TERMS_DAYS = 15
+/** Shown when the trader shortens payment terms: it is not a fix on its own, so it's no longer offered as one. */
+export const SHORTER_TERMS_NOTE = "Shorter terms free credit sooner but don't fix the breach on delivery day; combine with a smaller quantity or a letter of credit."
+/** Headroom after the deal below this share of the group limit counts as "at limit": any upward move breaches it. */
+const AT_LIMIT_SHARE = 0.01
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -261,11 +263,6 @@ function suggestedMove(ctx: ComputeCtx, e: EnquiryRow): SuggestedMove {
     const counterOptions: CounterOption[] = []
     if (maxQty >= MIN_QTY_MT) counterOptions.push({ kind: 'quantity', quantityMt: maxQty })
     counterOptions.push({ kind: 'letter_of_credit', quantityMt: e.quantity_mt })
-    counterOptions.push({
-      kind: 'payment_terms',
-      paymentDays: SHORT_TERMS_DAYS,
-      note: "Frees credit sooner but doesn't fix the breach on delivery day; combine with a smaller quantity or a letter of credit.",
-    })
     return {
       move: 'COUNTER',
       reason: 'credit',
@@ -609,6 +606,26 @@ export const METRICS = {
     kind: 'metric',
     compute: (ctx, p: TermsParams) => dealCreditUse(ctx, p),
   }),
+  credit_status: defineMetric({
+    id: 'credit_status',
+    name: 'Credit status for this deal',
+    definition:
+      'Whether the deal fits the customer’s group credit at these terms: over the limit (headroom after the deal below zero), at the limit (headroom after the deal under 1% of the group limit, so any upward move breaches it), or within the limit.',
+    formula: 'headroom after deal < 0 → over · < 1% of group limit → at limit · otherwise → within',
+    owner: 'Credit',
+    certified: true,
+    certifiedOn: '2026-09-01',
+    sourceTables: ['dim_customer', 'agg_customer_exposure', 'fct_market_price'],
+    scope: 'group',
+    visibleTo: TRADER_AND_COMPLIANCE,
+    unit: 'status',
+    kind: 'metric',
+    compute: (ctx, p: TermsParams): 'over' | 'at_limit' | 'within' => {
+      const after = headroomAfter(ctx, p)
+      const limit = creditLimit(ctx, enquiryOf(ctx, p.enquiryId).customer_id)
+      return after < 0 ? 'over' : after < limit * AT_LIMIT_SHARE ? 'at_limit' : 'within'
+    },
+  }),
   credit_headroom_after_deal: defineMetric({
     id: 'credit_headroom_after_deal',
     name: 'Credit headroom after this deal',
@@ -811,8 +828,8 @@ export const METRICS = {
   customer_avg_premium: defineMetric({
     id: 'customer_avg_premium',
     name: 'Customer average premium',
-    definition: 'Average premium over benchmark on this customer’s deals with the desk in the last 12 months.',
-    formula: 'avg(fct_deal.premium_usd_mt), customer, last 12 months',
+    definition: 'Average premium over benchmark on this customer’s deals with the desk in the last 12 months, across all grades (VLSFO, HSFO and MGO together) for a larger sample.',
+    formula: 'avg(fct_deal.premium_usd_mt), customer, all grades, last 12 months',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',

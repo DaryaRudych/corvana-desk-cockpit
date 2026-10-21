@@ -615,11 +615,23 @@ const groupExposure = (c: Customer) => round2(exposure(ASIA, c) + exposure(RTM, 
 
 // ───────────────────────────── today's open enquiries ─────────────────────────────
 
+// A vessel sends one enquiry a day (two at most, for different grades), across both desks.
+const openGradesByVessel = new Map<string, GradeId[]>()
 function generateOpen(desk: DeskCfg, pool: Customer[]): void {
   for (let i = 0; i < desk.openN; i++) {
     const dueMin = NOW_MIN + randInt(150, 600)
     const recMin = Math.min(NOW_MIN - randInt(5, 60), dueMin - randInt(4 * 60, 8 * 60))
-    newEnquiry(desk, pick(pool), recMin, { dueMin })
+    const pairs = pool.flatMap((c) => tradableVessels(c).map((v) => ({ c, v })))
+    const fresh = pairs.filter((x) => !openGradesByVessel.has(x.v.id))
+    const second = pairs.filter((x) => openGradesByVessel.get(x.v.id)?.length === 1)
+    const { c, v } = fresh.length ? pick(fresh) : pick(second)
+    const used = openGradesByVessel.get(v.id) ?? []
+    const grade = weightedPick(
+      GRADES.filter((g) => !used.includes(g.id)),
+      (g) => g.mix,
+    ).id
+    openGradesByVessel.set(v.id, [...used, grade])
+    newEnquiry(desk, c, recMin, { dueMin, vessel: v, grade })
   }
 }
 // Keep customers already near a $10M limit out of today's queue, so S1 stays the credit story.
@@ -714,26 +726,47 @@ const S4 = newEnquiry(ASIA, S4C, NOW_MIN - 185, {
 // (c) Group exposure: $3.92M Asia + $0.40M Rotterdam, balanced with contracted-not-delivered deals.
 function balanceExposure(c: Customer, desk: DeskCfg, target: number, recDays: [number, number], deliveryDays: number[]): void {
   let gap = round2(target - exposure(desk, c))
-  assert(gap >= 190_000, `${desk.code} ${c.name} exposure from history is too close to target (gap ${gap})`)
-  const premium = c.basePremium + (desk === RTM ? c.rtmPremiumOffset : 0)
-  const parts = Math.ceil(gap / 1_300_000)
-  for (let i = 0; i < parts; i++) {
-    const part = i === parts - 1 ? gap : round2(gap / (parts - i))
-    const recMin = randInt(recDays[0], recDays[1]) * 1440 + randInt(8 * 60, 16 * 60)
-    const b = benchOn('GRD_VLSFO', dayOf(recMin))
-    const qty = Math.round(part / (b + premium))
-    const slot = findSlot(desk, 'GRD_VLSFO', qty, shuffle(deliveryDays))
+  assert(gap >= 370_000, `${desk.code} ${c.name} exposure from history is too close to target (gap ${gap})`)
+  const base = c.basePremium + (desk === RTM ? c.rtmPremiumOffset : 0)
+  const usedDays = new Set<number>()
+  const premiums = range(-8, 8).map((k) => base + k * 0.25) // $0.25 steps around the customer's usual premium
+  const qtys = range(6, 50).map((k) => k * 50) // 300–2,500 mt in round 50 mt steps
+
+  const book = (qty: number, premium: number, recMin: number, vessel: Vessel) => {
+    const slot = findSlot(desk, 'GRD_VLSFO', qty, shuffle(deliveryDays.filter((d) => !usedDays.has(d))))
     assert(slot !== null, `${desk.code} ${c.name} balancing deal needs a barge`)
-    const enq = newEnquiry(desk, c, recMin, {
-      vessel: c.vessels[1],
-      grade: 'GRD_VLSFO',
-      qty,
-      winStart: slot!.day,
-      winEnd: slot!.day + 1,
-    })
-    closeAsWon(enq, 'quote', premium, qty, slot!.barge, slot!.day, round2(part / qty))
-    gap = round2(gap - qty * round2(part / qty))
+    usedDays.add(slot!.day)
+    const enq = newEnquiry(desk, c, recMin, { vessel, grade: 'GRD_VLSFO', qty, winStart: slot!.day, winEnd: slot!.day + 1 })
+    closeAsWon(enq, 'quote', premium, qty, slot!.barge, slot!.day)
+    gap = round2(gap - qty * round2(benchOn('GRD_VLSFO', dayOf(recMin)) + premium))
   }
+  const rec = () => randInt(recDays[0], recDays[1]) * 1440 + randInt(8 * 60, 16 * 60)
+
+  // Large gaps: one ordinary round deal first.
+  while (gap > 2_600_000) {
+    const r = rec()
+    book(roundTo(uniform(1_200, 1_800), 50), roundTo(base, 0.25), r, pick(c.vessels))
+  }
+  // Last two deals: round quantities and premiums whose combined value lands on the target.
+  const r1 = rec()
+  const r2 = rec()
+  const b1 = benchOn('GRD_VLSFO', dayOf(r1))
+  const b2 = benchOn('GRD_VLSFO', dayOf(r2))
+  let best = { d: Infinity, q1: 0, p1: 0, q2: 0, p2: 0 }
+  for (const q1 of qtys)
+    for (const p1 of premiums) {
+      const v1 = q1 * round2(b1 + p1)
+      if (v1 >= gap) break
+      for (const q2 of qtys) {
+        if (q2 === q1) continue // two different-looking orders
+        for (const p2 of premiums) {
+          const d = Math.abs(gap - v1 - q2 * round2(b2 + p2))
+          if (d < best.d) best = { d, q1, p1, q2, p2 }
+        }
+      }
+    }
+  book(best.q1, best.p1, r1, c.vessels[0])
+  book(best.q2, best.p2, r2, c.vessels[1])
 }
 balanceExposure(S1C, ASIA, 3_920_000, [-6, -2], [1, 2, 3, 7, 8, 9])
 balanceExposure(S1C, RTM, 400_000, [-5, -3], [2, 3, 4])

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { day, mt, usdMt } from '../lib/format'
 import { DECLINE_REASONS, type DeclineReason, type TraderResponse } from '../semantic/actions'
-import type { Move, SuggestedMove } from '../semantic/metrics'
+import { SHORTER_TERMS_NOTE, type Move, type SuggestedMove } from '../semantic/metrics'
 import { query, type UserContext } from '../semantic/query'
 import { applyOption, optionLabel, termsParams, type Mode, type Terms } from './terms'
 import { CARD, MetricValue, Pill } from './ui'
@@ -64,7 +64,6 @@ function CounterForm({
   const after = query('credit_headroom_after_deal', live, user)
   const margin = query('expected_deal_margin', live, user)
   const options = move?.move === 'COUNTER' ? move.counterOptions : []
-  const termsNote = options.find((o) => o.kind === 'payment_terms')
   const dates = timeline ? timeline.days.filter((d) => d >= e.window_start) : [e.window_start]
   const freeOn = (d: string) => (timeline ? timeline.barges.some((b) => b.freeDays.includes(d)) : false)
   const tooSmall = terms.quantity < 300
@@ -136,11 +135,7 @@ function CounterForm({
         </Readout>
       </div>
 
-      {termsNote?.kind === 'payment_terms' && terms.paymentDays < e.paymentTermsDays && !terms.letterOfCredit && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Shorter terms: {termsNote.note}
-        </p>
-      )}
+      {terms.paymentDays < e.paymentTermsDays && !terms.letterOfCredit && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{SHORTER_TERMS_NOTE}</p>}
       {tooSmall && <p className="text-xs text-red-600">Minimum quantity is 300 mt.</p>}
       {!freeOn(terms.deliveryDate) && <p className="text-xs text-amber-700">No compatible barge is free on {day(terms.deliveryDate)}.</p>}
 
