@@ -20,12 +20,17 @@ export function Card({ title, verdict, verdictInfo, children }: { title: string;
     <section className={`flex flex-col ${CARD}`}>
       <header className="flex flex-col items-start gap-1.5 px-5 pt-4">
         <h2 className="text-base leading-snug font-semibold tracking-tight whitespace-nowrap text-zinc-900">{title}</h2>
-        {verdict && (
+        {verdict ? (
           <span className="inline-flex items-center gap-1.5">
             <Pill tone={verdict.tone} className="whitespace-nowrap">
               {verdict.label}
             </Pill>
             {verdictInfo}
+          </span>
+        ) : (
+          // Keep the pill's height so content lines up across cards.
+          <span aria-hidden="true" className="invisible inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
+            &nbsp;
           </span>
         )}
       </header>

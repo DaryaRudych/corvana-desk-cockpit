@@ -186,31 +186,37 @@ export function PricePanel({
   const diff = suggested.value === null ? 0 : terms.premium - suggested.value
   const dash = (v: number) => (v ? signed(v) : '—')
 
-  // Each figure has one home: suggestion + rule in the header pill, the trader's premium on the
+  // Each figure has one home: suggestion + rule at the top, the trader's premium on the
   // slider, price and margin in the tiles. Tooltips explain a figure without repeating it.
   return (
-    <Card
-      title="Pricing & Margin"
-      verdict={{ tone: 'accent', label: <><MetricValue r={suggested} format={(v: number) => `${usdMt(v)}/mt`} /> suggested</> }}
-      verdictInfo={
-        <InfoTip label="How the suggested premium is built" below align="right">
-          <span className="mb-1.5 block font-semibold">Rule: how the suggestion is built</span>
-          <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
-            <span className="text-zinc-300">
-              {bd.baseSource === 'customer' ? 'Customer 12-month avg' : 'Desk avg (< 5 customer deals)'} · {deals.value ?? 0} deals
+    <Card title="Pricing & Margin">
+      {/* The suggestion (a governed rule, not AI): its one place in the card. */}
+      <div>
+        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+          Suggested premium
+          <InfoTip label="How the suggested premium is built" below>
+            <span className="mb-1.5 block font-semibold">Rule: how the suggestion is built</span>
+            <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+              <span className="text-zinc-300">
+                {bd.baseSource === 'customer' ? 'Customer 12-month avg' : 'Desk avg (< 5 customer deals)'} · {deals.value ?? 0} deals
+              </span>
+              <span>{plain(bd.base)}</span>
+              <span className="text-zinc-300">Claims</span>
+              <span>{dash(bd.claimAdj)}</span>
+              <span className="text-zinc-300">Late payment</span>
+              <span>{dash(bd.dpdAdj)}</span>
+              <span className="text-zinc-300">Rounding to $0.50</span>
+              <span>{dash(bd.rounding)}</span>
             </span>
-            <span>{plain(bd.base)}</span>
-            <span className="text-zinc-300">Claims</span>
-            <span>{dash(bd.claimAdj)}</span>
-            <span className="text-zinc-300">Late payment</span>
-            <span>{dash(bd.dpdAdj)}</span>
-            <span className="text-zinc-300">Rounding to $0.50</span>
-            <span>{dash(bd.rounding)}</span>
-          </span>
-          <span className="mt-1.5 block text-[11px] text-zinc-400">+$2 if claim share is over 2× the desk’s; +$1 if average days past due is over 3.</span>
-        </InfoTip>
-      }
-    >
+            <span className="mt-1.5 block text-[11px] text-zinc-400">+$2 if claim share is over 2× the desk’s; +$1 if average days past due is over 3.</span>
+          </InfoTip>
+        </div>
+        <div className="text-[28px] leading-tight font-semibold tracking-tight text-indigo-600">
+          <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
+          <span className="ml-0.5 text-sm font-medium text-zinc-400">/mt</span>
+        </div>
+      </div>
+
       {/* The trader's premium: the decision input. */}
       <div className="rounded-xl bg-zinc-50 px-3 pt-2.5 pb-2">
         <div className="flex items-baseline justify-between">
