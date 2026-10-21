@@ -224,20 +224,21 @@ export function PricePanel({
       {/* Deal economics at your premium: price − cost − barging = margin. */}
       <List title={`Deal economics at your premium, ${mt(terms.quantity)}`}>
         {benchmarkRow}
-        <ListRow label="+ Your premium">
-          <span className="num">{usdMt(terms.premium)}</span>
+        {/* Operators sit with the numbers, so the column reads as the sum. */}
+        <ListRow label="Your premium">
+          <span className="num">+{usdMt(terms.premium)}</span>
         </ListRow>
-        <ListRow label={<span className="font-medium text-zinc-900">= Quoted price</span>}>
-          <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
+        <ListRow label={<span className="font-medium text-zinc-900">Quoted price</span>}>
+          <MetricValue r={price} format={(v: number) => `= ${usdMt(v)}/mt`} />
         </ListRow>
-        <ListRow label="− Our cost">
-          <MetricValue r={cost} format={(v: number) => usdMt(v)} />
+        <ListRow label="Our cost">
+          <MetricValue r={cost} format={(v: number) => `−${usdMt(v)}`} />
         </ListRow>
-        <ListRow label="− Barging" hint="desk 12-month average">
-          <MetricValue r={barging} format={(v: number) => usdMt(v)} />
+        <ListRow label="Barging" hint="desk 12-month average">
+          <MetricValue r={barging} format={(v: number) => `−${usdMt(v)}`} />
         </ListRow>
-        <ListRow label={<span className="font-medium text-zinc-900">= Margin per tonne</span>}>
-          <MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
+        <ListRow label={<span className="font-medium text-zinc-900">Margin per tonne</span>}>
+          <MetricValue r={marginMt} format={(v: number) => `= ${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
         </ListRow>
         <ListRow label={<span className="font-medium text-zinc-900">Expected margin</span>} hint={`× ${mt(terms.quantity)}`}>
           <MetricValue r={margin} format={(v: number) => usd(v)} className={`text-[15px] ${thinMargin ? 'text-amber-600' : ''}`} />
