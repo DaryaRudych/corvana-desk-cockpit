@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatValue, mt, usd, usdMt } from '../lib/format'
+import { formatValue, mt, usd, usdCompact, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { termsParams, type Terms } from './terms'
@@ -170,8 +170,9 @@ export function PricePanel({
   const fromCustomer = bd?.baseSource === 'customer'
   const adj = (v: number) => `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}`
 
-  // No suggested-premium pill: the bold figure below is its one place. The pill only flags a thin margin.
-  const verdict: Verdict | undefined = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : undefined
+  // Same pattern as the other cards: a rule-driven verdict (governed flag), amber below the desk floor.
+  const aboveFloor = query('margin_above_floor', live, user).value !== false
+  const verdict: Verdict = aboveFloor ? { tone: 'ok', label: 'Margin above floor' } : { tone: 'warn', label: 'Margin below floor' }
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
@@ -244,7 +245,7 @@ export function PricePanel({
           <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
         </Tile>
         <Tile label="Expected margin" sub={<MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt${thinMargin ? ' · under $3 floor' : ''}`} />} subTone={thinMargin ? 'warn' : 'neutral'}>
-          <MetricValue r={margin} format={(v: number) => usd(v)} className={thinMargin ? 'text-amber-600' : ''} />
+          <MetricValue r={margin} format={(v: number) => usdCompact(v)} className={thinMargin ? 'text-amber-600' : ''} />
         </Tile>
       </div>
       <div className="-mt-1">
@@ -255,7 +256,7 @@ export function PricePanel({
           className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
         >
           <ChevronIcon className={`size-3 transition-transform ${showMath ? 'rotate-90' : ''}`} />
-          How it's calculated, {mt(terms.quantity)}
+          How margin is built
         </button>
         {showMath && (
           <div className="mt-2">

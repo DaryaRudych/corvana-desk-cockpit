@@ -92,7 +92,7 @@ export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null
       ', ',
       chip(query('barge_available_in_window', p, user), { label: 'a barge is free' }),
       ' and ',
-      chip(query('credit_headroom_after_deal', p, user), { label: 'credit holds' }),
+      chip(query('credit_headroom_after_deal', p, user), { label: 'credit is within limit' }),
       '.',
     ])
     sentences.push(['Quote at ', premium, ': ', ...premiumBuildUp(p, user), '.'])
