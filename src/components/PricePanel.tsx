@@ -1,15 +1,12 @@
 // Pricing & Margin: the governed suggested-premium RULE (not AI), the trader's premium, and what
-// the deal earns. Compact by default (numbers over words): the build-up sits in the ⓘ by the pill,
-// the economics waterfall opens on demand. Rule thresholds live in tooltips and the definitions
-// panel only.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+// the deal earns. Each figure appears once; ⓘ tooltips explain a figure without repeating it.
+import { useEffect, useRef, useState } from 'react'
 import { mt, usdCompact, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { useOpenDefinition } from './governanceContext'
-import { ChevronIcon } from './Icons'
 import { termsParams, type Terms } from './terms'
-import { Card, InfoTip, List, ListRow, MetricValue, Tile, type Verdict } from './ui'
+import { Card, InfoTip, List, ListRow, MetricValue, Tile } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -125,14 +122,6 @@ function PremiumSlider({
 
 // ───────────────────────────── small pieces ─────────────────────────────
 
-function Toggle({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} aria-expanded={open} className="inline-flex items-center gap-1 self-start text-xs font-medium text-indigo-600 hover:text-indigo-800">
-      {label}
-      <ChevronIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
-    </button>
-  )
-}
 
 /** Day-on-day change, number only: ▲3.50 green / ▼2.50 red. */
 function Delta({ r }: { r: QueryResult<number> }) {
@@ -145,15 +134,6 @@ function Delta({ r }: { r: QueryResult<number> }) {
   )
 }
 
-function Row({ label, context, children, strong }: { label: ReactNode; context?: ReactNode; children: ReactNode; strong?: boolean }) {
-  return (
-    <tr className={strong ? 'border-t border-zinc-200 font-semibold text-zinc-900' : ''}>
-      <td className="py-1 pr-2">{label}</td>
-      <td className="num py-1 pr-2 text-right">{children}</td>
-      <td className="py-1 text-[11px] text-zinc-400">{context}</td>
-    </tr>
-  )
-}
 
 // ───────────────────────────── card ─────────────────────────────
 
@@ -171,7 +151,6 @@ export function PricePanel({
   onPremium: (premium: number) => void
 }) {
   const openDefinition = useOpenDefinition()
-  const [showEconomics, setShowEconomics] = useState(false)
   const p = { enquiryId }
   const blocked = query('compliance_check', p, user).value === 'FLAG'
   const grade = query('enquiry_details', p, user).value?.gradeName
@@ -193,11 +172,9 @@ export function PricePanel({
 
   const live = termsParams(enquiryId, terms)
   const win = query('win_range_similar', p, user)
-  const b = query('suggested_premium_breakdown', p, user)
-  const bd = b.value!
+  const bd = query('suggested_premium_breakdown', p, user).value!
   const suggested = query('suggested_premium', p, user)
   const custPrem = query('customer_avg_premium', p, user)
-  const deskPrem = query('desk_avg_premium', p, user)
   const deals = query('customer_deal_count', p, user)
   const cost = query('our_cost', p, user)
   const barging = query('barging_cost_per_mt', p, user)
@@ -205,87 +182,52 @@ export function PricePanel({
   const margin = query('expected_deal_margin', live, user)
   const marginMt = query('expected_margin_per_mt', live, user)
   const thinMargin = (marginMt.value ?? 0) < 3
-  const offSuggestion = suggested.value !== null && terms.premium !== suggested.value
+  const atSuggestion = suggested.value === null || terms.premium === suggested.value
   const diff = suggested.value === null ? 0 : terms.premium - suggested.value
-  const fromCustomer = bd.baseSource === 'customer'
-  const base = fromCustomer ? custPrem : deskPrem
+  const dash = (v: number) => (v ? signed(v) : '—')
 
-  // One-line build-up from the rule: only non-zero components.
-  const parts: { r: QueryResult<unknown>; text: string }[] = [{ r: base, text: `${plain(bd.base)} ${fromCustomer ? 'cust. avg' : 'desk avg'}` }]
-  if (bd.claimAdj) parts.push({ r: b, text: `${plain(bd.claimAdj)} claims` })
-  if (bd.dpdAdj) parts.push({ r: b, text: `${plain(bd.dpdAdj)} late pay` })
-  if (bd.rounding) parts.push({ r: b, text: `${signed(bd.rounding).replace('+', '')} rounding` })
-
-  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
-
+  // Each figure has one home: suggestion + rule in the header pill, the trader's premium on the
+  // slider, price and margin in the tiles. Tooltips explain a figure without repeating it.
   return (
     <Card
       title="Pricing & Margin"
-      verdict={verdict}
+      verdict={{ tone: 'accent', label: <><MetricValue r={suggested} format={(v: number) => `${usdMt(v)}/mt`} /> suggested</> }}
       verdictInfo={
         <InfoTip label="How the suggested premium is built" below align="right">
-          <span className="mb-1.5 block font-semibold">How it's built</span>
+          <span className="mb-1.5 block font-semibold">Rule: how the suggestion is built</span>
           <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
             <span className="text-zinc-300">
-              {fromCustomer ? 'Cust. avg' : 'Desk avg'} · {deals.value ?? 0} deals
+              {bd.baseSource === 'customer' ? 'Customer 12-month avg' : 'Desk avg (< 5 customer deals)'} · {deals.value ?? 0} deals
             </span>
             <span>{plain(bd.base)}</span>
             <span className="text-zinc-300">Claims</span>
-            <span>{bd.claimAdj ? signed(bd.claimAdj) : '—'}</span>
-            <span className="text-zinc-300">Late pay</span>
-            <span>{bd.dpdAdj ? signed(bd.dpdAdj) : '—'}</span>
+            <span>{dash(bd.claimAdj)}</span>
+            <span className="text-zinc-300">Late payment</span>
+            <span>{dash(bd.dpdAdj)}</span>
             <span className="text-zinc-300">Rounding to $0.50</span>
-            <span>{signed(bd.rounding)}</span>
-            <span className="mt-1 border-t border-zinc-700 pt-1 font-semibold">Suggested</span>
-            <span className="mt-1 border-t border-zinc-700 pt-1 font-semibold">{plain(bd.value)}</span>
+            <span>{dash(bd.rounding)}</span>
           </span>
-          <span className="mt-1.5 block text-[11px] text-zinc-400">
-            Rule: +$2 if claim share is over 2× the desk’s, +$1 if average days past due is over 3, then round to $0.50.
-          </span>
+          <span className="mt-1.5 block text-[11px] text-zinc-400">+$2 if claim share is over 2× the desk’s; +$1 if average days past due is over 3.</span>
         </InfoTip>
       }
     >
-      {/* B. Suggested premium (rule) */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
-          Suggested premium
-          <button
-            type="button"
-            onClick={() => openDefinition('suggested_premium')}
-            title="Open the rule's definition"
-            className="inline-flex items-center gap-1 rounded-full border border-zinc-200 px-1.5 py-px text-[10px] font-semibold text-zinc-600 hover:border-indigo-300 hover:text-indigo-700"
-          >
-            rule <span className="flex size-3 items-center justify-center rounded-full border border-current text-[8px]">i</span>
-          </button>
-        </div>
-        <div className="text-[28px] leading-tight font-semibold tracking-tight text-indigo-600">
-          <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
-          <span className="ml-0.5 text-sm font-medium text-zinc-400">/mt</span>
-        </div>
-        <div className="num text-xs text-zinc-500">
-          {parts.map((part, i) => (
-            <span key={part.text}>
-              {i > 0 && ' + '}
-              <MetricValue r={part.r} format={() => part.text} />
-            </span>
-          ))}
-          {!bd.claimAdj && !bd.dpdAdj && ' · no adjustments'}
-        </div>
-      </div>
-
-      {/* C. Premium slider */}
+      {/* The trader's premium: the decision input. */}
       <div className="rounded-xl bg-zinc-50 px-3 pt-2.5 pb-2">
         <div className="flex items-baseline justify-between">
           <span className="text-xs text-zinc-500">Your premium</span>
-          <span className="num">
-            <span className="text-[15px] font-semibold text-zinc-900">{usdMt(terms.premium)}</span>
-            <span className="text-xs text-zinc-400">/mt</span>
-            {offSuggestion && editable && (
-              <button type="button" onClick={() => onPremium(suggested.value!)} className="ml-2 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
-                {diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(2)} · reset
-              </button>
-            )}
-          </span>
+          {atSuggestion ? (
+            <span className="text-xs text-zinc-500">at suggestion</span>
+          ) : (
+            <span className="num">
+              <span className="text-[15px] font-semibold text-zinc-900">{usdMt(terms.premium)}</span>
+              <span className="text-xs text-zinc-400">/mt</span>
+              {editable && (
+                <button type="button" onClick={() => onPremium(suggested.value!)} className="ml-2 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
+                  {diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(2)} · reset
+                </button>
+              )}
+            </span>
+          )}
         </div>
         {editable ? (
           <PremiumSlider w={win.value} customerAvg={custPrem.value} value={terms.premium} onChange={onPremium} />
@@ -294,62 +236,47 @@ export function PricePanel({
         )}
       </div>
 
-      {/* D. KPI tiles, live with the slider */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* What the deal earns at that premium; pinned to the card's foot. */}
+      <div className="mt-auto grid grid-cols-2 gap-2">
         <Tile
           label="Quoted price"
           sub={
-            <span className="num text-[10.5px] tracking-tight whitespace-nowrap">
-              <MetricValue r={bench} format={(v: number) => plain(v)} /> <Delta r={delta} /> + {terms.premium.toFixed(2)}
+            <span className="num whitespace-nowrap">
+              <MetricValue r={bench} format={(v: number) => plain(v)} /> {grade} <Delta r={delta} />
             </span>
           }
         >
           <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
         </Tile>
         <div className="min-w-0 rounded-xl bg-zinc-50 px-3 py-2.5">
-          <button
-            type="button"
-            onClick={() => openDefinition('expected_deal_margin')}
-            className="text-[11px] text-zinc-500 underline decoration-zinc-300 decoration-dotted underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400"
-          >
-            Expected margin
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openDefinition('expected_deal_margin')}
+              className="text-[11px] text-zinc-500 underline decoration-zinc-300 decoration-dotted underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-400"
+            >
+              Expected margin
+            </button>
+            <InfoTip label="How the margin is built" align="right">
+              <span className="mb-1.5 block font-semibold">Quoted price, less:</span>
+              <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+                <span className="text-zinc-300">Our stock cost</span>
+                <span>{cost.value !== null ? `−${plain(cost.value)}` : '—'}</span>
+                <span className="text-zinc-300">Barging, desk 12-month avg</span>
+                <span>{barging.value !== null ? `−${plain(barging.value)}` : '—'}</span>
+              </span>
+              <span className="mt-1.5 block text-[11px] text-zinc-400">= margin per tonne, × {mt(terms.quantity)}. Below $3/mt the suggested move is Decline.</span>
+            </InfoTip>
+          </div>
           <div className="num mt-0.5 text-[15px] font-semibold text-zinc-900">
             <MetricValue r={margin} format={(v: number) => usdCompact(v)} className={thinMargin ? 'text-amber-600' : ''} />
           </div>
-          <div className="mt-0.5 text-[11px] text-zinc-500">
-            <MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
+          <div className={`mt-0.5 text-[11px] ${thinMargin ? 'text-amber-600' : 'text-zinc-500'}`}>
+            <MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt`} />
+            {thinMargin && ' · under $3 floor'}
           </div>
         </div>
       </div>
-
-      {/* E. Deal economics waterfall */}
-      <Toggle label="Deal economics" open={showEconomics} onClick={() => setShowEconomics(!showEconomics)} />
-      {showEconomics && (
-        <table className="-mt-1 w-full text-xs text-zinc-600">
-          <tbody>
-            <Row label={`Benchmark ${grade ?? ''}`} context={<Delta r={delta} />}>
-              <MetricValue r={bench} format={(v: number) => plain(v)} />
-            </Row>
-            <Row label="+ Your premium">{plain(terms.premium)}</Row>
-            <Row label="= Quoted price" strong>
-              <MetricValue r={price} format={(v: number) => plain(v)} />
-            </Row>
-            <Row label="− Our cost">
-              <MetricValue r={cost} format={(v: number) => plain(v)} />
-            </Row>
-            <Row label="− Barging" context="desk 12-mo avg">
-              <MetricValue r={barging} format={(v: number) => plain(v)} />
-            </Row>
-            <Row label="= Margin / mt" strong>
-              <MetricValue r={marginMt} format={(v: number) => plain(v)} />
-            </Row>
-            <Row label={`× ${mt(terms.quantity)}`} strong>
-              <MetricValue r={margin} format={(v: number) => usdCompact(v)} />
-            </Row>
-          </tbody>
-        </table>
-      )}
     </Card>
   )
 }

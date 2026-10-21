@@ -9,7 +9,7 @@ import { useMetricCard } from './metricCardContext'
 export type Tone = 'ok' | 'warn' | 'bad' | 'neutral' | 'accent'
 export interface Verdict {
   tone: Tone
-  label: string
+  label: ReactNode
 }
 
 export const CARD = 'rounded-2xl bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_16px_rgba(16,24,40,0.05)]'
