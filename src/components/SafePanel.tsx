@@ -90,7 +90,7 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
               label="This deal uses"
               hint={terms.letterOfCredit ? 'letter of credit: no customer credit' : <>{mt(terms.quantity)} × <MetricValue r={price} format={(v: number) => usdMt(v)} />, owed until paid</>}
             >
-              <MetricValue r={dealUse} format={(v: number) => (v ? `−${usd(v)}` : usd(0))} />
+              <MetricValue r={dealUse} format={(v: number) => usd(v)} />
             </ListRow>
           </List>
 
