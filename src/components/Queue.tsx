@@ -1,4 +1,4 @@
-import { duration, mt, usd } from '../lib/format'
+import { duration, mt, usdCompact } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { Pill } from './ui'
 
@@ -51,7 +51,7 @@ export function Queue({ rows, selectedId, onSelect }: { rows: QueueRow[]; select
                     {mt(r.quantityMt)} {r.gradeName} · {r.vesselName}
                   </span>
                 </span>
-                <span className={`num pt-px text-right text-xs ${r.expectedValue < 0 && !blocked ? 'text-red-600' : 'text-zinc-600'}`}>{blocked ? '—' : usd(r.expectedValue)}</span>
+                <span className={`num pt-px text-right text-xs ${r.expectedValue < 0 && !blocked ? 'text-red-600' : 'text-zinc-600'}`}>{blocked ? '—' : usdCompact(r.expectedValue)}</span>
                 {r.blockers.length > 0 && (
                   <span className="col-start-2 col-end-4 mt-1 flex gap-1">
                     {r.blockers.map((b) => (

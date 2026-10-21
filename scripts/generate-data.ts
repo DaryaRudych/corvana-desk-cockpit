@@ -235,8 +235,9 @@ for (const desk of DESKS) {
     let s = base
     for (let d = STOCK_FROM; d <= 0; d++) {
       s = clamp(roundTo(s + normal(0, base * 0.04), 10), base * 0.6, base * 1.4)
-      const ma = mean(Array.from({ length: 10 }, (_, i) => benchOn(g.id, d - 3 - i)))
-      const cost = round2(ma - 1.2 + normal(0, 0.6))
+      // Stock cost tracks the benchmark at about −$2/mt, so the premium is effectively the margin:
+      // a careless low quote loses money (today's cost is exactly benchmark − $2).
+      const cost = d === 0 ? round2(benchOn(g.id, 0) - 2) : round2(benchOn(g.id, d) - 2 + normal(0, 0.4))
       stockCost.set(`${desk.id}|${g.id}|${d}`, cost)
       stockRows.push({ date: dayStr(d), desk_id: desk.id, grade_id: g.id, stock_mt: s, avg_cost_usd_mt: cost })
     }

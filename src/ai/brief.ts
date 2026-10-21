@@ -2,7 +2,7 @@
 // Deterministic templates over query() results: it explains the rule's outcome, it never
 // computes a number, and on a compliance flag it only says "refer to compliance".
 // Kept deliberately lean: the decisive figures inline, the supporting ones in "Based on".
-import { day, mt, usdMt } from '../lib/format'
+import { day, mt, usdCompact, usdMt } from '../lib/format'
 import type { Move } from '../semantic/metrics'
 import { query, type UserContext } from '../semantic/query'
 import { basedOn, chip, type Segment } from './types'
@@ -102,7 +102,7 @@ export function enquiryBrief(enquiryId: string, user: UserContext): Brief | null
     if (fromCustomer && winR.value?.wonP75 != null && sugg !== null && sugg > winR.value.wonP75) {
       sentences.push(['That is above the desk’s won range on similar quotes (up to ', chip(winR, { label: perMt(winR.value.wonP75) }), '), in line with what this customer pays.'])
     }
-    sentences.push(['Expected margin ', chip(query('expected_deal_margin', p, user)), ' after our cost and barging.'])
+    sentences.push(['Expected margin ', chip(query('expected_deal_margin', p, user), { format: usdCompact }), ' after our cost and barging.'])
   }
 
   return { move: move.move, sentences, basedOn: basedOn(...sentences, support) }

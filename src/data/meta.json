@@ -4,9 +4,9 @@
   "timezone": "+08:00",
   "note": "Demo clock is frozen at `now`. Scenario ids are for docs/tests only; the app must not special-case them.",
   "scenarios": {
-    "S1": "ENQ-AH-01217",
-    "S2": "ENQ-AH-01222",
-    "S3": "ENQ-AH-01213",
-    "S4": "ENQ-AH-01212"
+    "S1": "ENQ-AH-01213",
+    "S2": "ENQ-AH-01221",
+    "S3": "ENQ-AH-01211",
+    "S4": "ENQ-AH-01208"
   }
 }

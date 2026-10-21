@@ -171,8 +171,13 @@ export function PricePanel({
   const adj = (v: number) => `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}`
 
   // Same pattern as the other cards: a rule-driven verdict (governed flag), amber below the desk floor.
-  const aboveFloor = query('margin_above_floor', live, user).value !== false
-  const verdict: Verdict = aboveFloor ? { tone: 'ok', label: 'Margin above floor' } : { tone: 'warn', label: 'Margin below floor' }
+  const floor = query('margin_vs_floor', live, user).value
+  const verdict: Verdict =
+    floor === 'below'
+      ? { tone: 'bad', label: 'Margin below floor' }
+      : floor === 'near'
+        ? { tone: 'warn', label: 'Margin near floor' }
+        : { tone: 'ok', label: 'Margin above floor' }
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
@@ -244,8 +249,8 @@ export function PricePanel({
         >
           <MetricValue r={price} format={(v: number) => `${usdMt(v)}/mt`} />
         </Tile>
-        <Tile label="Expected margin" sub={<MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt${thinMargin ? ' · under $3 floor' : ''}`} />} subTone={thinMargin ? 'warn' : 'neutral'}>
-          <MetricValue r={margin} format={(v: number) => usdCompact(v)} className={thinMargin ? 'text-amber-600' : ''} />
+        <Tile label="Expected margin" sub={<MetricValue r={marginMt} format={(v: number) => `${usdMt(v)}/mt${thinMargin ? ' · under $3 floor' : ''}`} />} subTone={thinMargin ? 'bad' : 'neutral'}>
+          <MetricValue r={margin} format={(v: number) => usdCompact(v)} className={thinMargin ? 'text-red-600' : ''} />
         </Tile>
       </div>
       <div className="-mt-1">
@@ -276,7 +281,7 @@ export function PricePanel({
             <MetricValue r={barging} format={(v: number) => `−${usdMt(v)}`} />
           </ListRow>
           <ListRow label={<span className="font-medium text-zinc-900">Margin per tonne</span>}>
-            <MetricValue r={marginMt} format={(v: number) => `= ${usdMt(v)}/mt`} className={thinMargin ? 'text-amber-600' : ''} />
+            <MetricValue r={marginMt} format={(v: number) => `= ${usdMt(v)}/mt`} className={thinMargin ? 'text-red-600' : ''} />
           </ListRow>
           <ListRow label={<span className="font-medium text-zinc-900">Expected margin</span>} hint={`× ${mt(terms.quantity)}`}>
             <MetricValue r={margin} format={(v: number) => usd(v)} className={`text-[15px] ${thinMargin ? 'text-amber-600' : ''}`} />

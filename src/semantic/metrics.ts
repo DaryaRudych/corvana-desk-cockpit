@@ -84,6 +84,7 @@ const MIN_CUSTOMER_DEALS = 5
 const CLAIM_ADJ_USD = 2
 const DPD_ADJ_USD = 1
 const MIN_MARGIN_USD_MT = 3
+const MARGIN_WATCH_BAND = 3 // amber band above the floor
 const COUNTER_DATE_DAYS = 3
 const MIN_QTY_MT = 300
 const QTY_STEP_MT = 50
@@ -1016,20 +1017,24 @@ export const METRICS = {
     kind: 'metric',
     compute: (ctx, p: TermsParams) => round2(expectedMargin(ctx, p) / terms(ctx, p).quantity),
   }),
-  margin_above_floor: defineMetric({
-    id: 'margin_above_floor',
-    name: 'Margin above desk floor',
-    definition: 'True when the expected margin per tonne at these terms is at or above the desk’s minimum of $3/mt. Below it, the suggested move is Decline.',
-    formula: 'expected margin per tonne ≥ $3/mt',
+  margin_vs_floor: defineMetric({
+    id: 'margin_vs_floor',
+    name: 'Margin vs desk floor',
+    definition:
+      'Where the expected margin per tonne at these terms sits against the desk’s $3/mt minimum: below the floor (the suggested move is Decline), near it (within $3 above), or above it.',
+    formula: 'margin per tonne < $3 → below · $3 to < $6 → near · ≥ $6 → above',
     owner: 'Desk head',
     certified: true,
     certifiedOn: '2026-09-15',
     sourceTables: ['fct_market_price', 'fct_stock', 'fct_deal'],
     scope: 'bu',
     visibleTo: TRADER_AND_COMPLIANCE,
-    unit: 'flag',
+    unit: 'status',
     kind: 'metric',
-    compute: (ctx, p: TermsParams) => expectedMargin(ctx, p) / terms(ctx, p).quantity >= MIN_MARGIN_USD_MT,
+    compute: (ctx, p: TermsParams): 'below' | 'near' | 'above' => {
+      const m = expectedMargin(ctx, p) / terms(ctx, p).quantity
+      return m < MIN_MARGIN_USD_MT ? 'below' : m < MIN_MARGIN_USD_MT + MARGIN_WATCH_BAND ? 'near' : 'above'
+    },
   }),
   suggested_move: defineMetric({
     id: 'suggested_move',
