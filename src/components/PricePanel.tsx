@@ -1,4 +1,4 @@
-import { mt, usd, usdMt } from '../lib/format'
+import { formatValue, mt, usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { termsParams, type Terms } from './terms'
@@ -79,6 +79,19 @@ function PremiumSlider({
   )
 }
 
+/** One line of the build-up tooltip: label, grey context underneath, value on the right. */
+function TipRow({ label, hint, value, strong }: { label: string; hint?: string; value: string; strong?: boolean }) {
+  return (
+    <span className={`flex items-baseline justify-between gap-4 py-1.5 first:pt-0 last:pb-0 ${strong ? 'font-semibold' : ''}`}>
+      <span>
+        <span className={strong ? 'text-white' : 'text-zinc-200'}>{label}</span>
+        {hint && <span className="block text-[11px] font-normal text-zinc-400">{hint}</span>}
+      </span>
+      <span className="text-white">{value}</span>
+    </span>
+  )
+}
+
 /** Day-on-day change: ▲ green, ▼ red, flat grey. */
 function DeltaChip({ r }: { r: QueryResult<number> }) {
   const v = r.value ?? 0
@@ -150,7 +163,6 @@ export function PricePanel({
 
   // No suggested-premium pill: the bold figure below is its one place. The pill only flags a thin margin.
   const verdict: Verdict | undefined = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : undefined
-  const step = (v: number) => (v ? `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}` : '—')
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
@@ -160,21 +172,23 @@ export function PricePanel({
           <>
             Suggested premium
             {bd && (
-              <InfoTip label="How the suggested premium is built" below>
-                <span className="mb-1.5 block font-semibold">Rule: how the suggestion is built</span>
-                <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
-                  <span className="text-zinc-300">
-                    {bd.baseSource === 'customer' ? 'Customer 12-month avg' : 'Desk avg (< 5 customer deals)'} · {deals.value ?? 0} deals
-                  </span>
-                  <span>{usdMt(bd.base)}</span>
-                  <span className="text-zinc-300">Claims</span>
-                  <span>{step(bd.claimAdj)}</span>
-                  <span className="text-zinc-300">Late payment</span>
-                  <span>{step(bd.dpdAdj)}</span>
-                  <span className="text-zinc-300">Rounding to $0.50</span>
-                  <span>{step(bd.rounding)}</span>
+              <InfoTip label="How the suggested premium is built" below wide>
+                <span className="mb-2 block font-semibold">How the suggestion is built</span>
+                <span className="num flex flex-col divide-y divide-zinc-700/70">
+                  <TipRow
+                    label={fromCustomer ? 'Customer 12-month average' : 'Desk average (customer has < 5 deals)'}
+                    hint={`${deals.value ?? 0} deals with this customer · desk average ${deskPrem.value !== null ? usdMt(deskPrem.value) : '—'}`}
+                    value={usdMt(bd.base)}
+                  />
+                  <TipRow
+                    label="Claims adjustment"
+                    hint={`claim share ${formatValue('ratio', custClaim.value)} vs desk ${formatValue('ratio', deskClaim.value)}; +$2 above 2× desk`}
+                    value={adj(bd.claimAdj)}
+                  />
+                  <TipRow label="Late-payment adjustment" hint={`avg ${formatValue('days', dpd.value)} past due; +$1 above 3 days`} value={adj(bd.dpdAdj)} />
+                  <TipRow label="Rounded to nearest $0.50" value={adj(bd.rounding)} />
+                  <TipRow label="Suggested premium" value={`${usdMt(bd.value)}/mt`} strong />
                 </span>
-                <span className="mt-1.5 block text-[11px] text-zinc-400">+$2 if claim share is over 2× the desk’s; +$1 if average days past due is over 3.</span>
               </InfoTip>
             )}
           </>
@@ -185,25 +199,6 @@ export function PricePanel({
       </Hero>
 
       {/* How the rule builds the suggestion; every line is a governed value. */}
-      {bd && (
-        <List title="How the suggestion is built">
-          <ListRow label={fromCustomer ? 'Customer 12-month average' : 'Desk average (customer has < 5 deals)'} hint={<>{deals.value ?? 0} deals with this customer · desk average <MetricValue r={deskPrem} format={(v: number) => usdMt(v)} /></>}>
-            <MetricValue r={fromCustomer ? custPrem : deskPrem} format={(v: number) => usdMt(v)} />
-          </ListRow>
-          <ListRow label="Claims adjustment" hint={<>claim share <MetricValue r={custClaim} /> vs desk <MetricValue r={deskClaim} />; +$2 above 2× desk</>}>
-            <MetricValue r={b} format={() => adj(bd.claimAdj)} className={bd.claimAdj ? 'text-amber-600' : 'text-zinc-500'} />
-          </ListRow>
-          <ListRow label="Late-payment adjustment" hint={<>avg <MetricValue r={dpd} /> past due; +$1 above 3 days</>}>
-            <MetricValue r={b} format={() => adj(bd.dpdAdj)} className={bd.dpdAdj ? 'text-amber-600' : 'text-zinc-500'} />
-          </ListRow>
-          <ListRow label="Rounded to nearest $0.50">
-            <MetricValue r={b} format={() => adj(bd.rounding)} className="text-zinc-500" />
-          </ListRow>
-          <ListRow label={<span className="font-medium text-zinc-900">Suggested premium</span>}>
-            <MetricValue r={suggested} format={(v: number) => `${usdMt(v)}/mt`} className="text-indigo-700" />
-          </ListRow>
-        </List>
-      )}
 
       {/* Quote builder */}
       <div className="rounded-xl bg-zinc-50 px-3 pt-2.5 pb-3">

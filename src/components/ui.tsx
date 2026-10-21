@@ -146,7 +146,19 @@ export function DetailRestricted({ message }: { message: string }) {
 }
 
 /** ⓘ with a hover/focus tooltip. Rule thresholds and scopes live here, not inline. */
-export function InfoTip({ children, label = 'More information', below = false, align = 'center' }: { children: ReactNode; label?: string; below?: boolean; align?: 'center' | 'left' | 'right' }) {
+export function InfoTip({
+  children,
+  label = 'More information',
+  below = false,
+  align = 'center',
+  wide = false,
+}: {
+  children: ReactNode
+  label?: string
+  below?: boolean
+  align?: 'center' | 'left' | 'right'
+  wide?: boolean
+}) {
   return (
     <span className="group relative inline-flex align-middle">
       <span tabIndex={0} aria-label={label} className="flex size-3.5 cursor-help items-center justify-center rounded-full border border-zinc-300 text-[9px] font-bold text-zinc-400 group-hover:border-zinc-500 group-hover:text-zinc-600 focus:outline-none">
@@ -154,7 +166,7 @@ export function InfoTip({ children, label = 'More information', below = false, a
       </span>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute z-30 w-60 rounded-lg ${below ? 'top-5' : 'bottom-5'} ${align === 'left' ? 'left-0' : align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} bg-zinc-900 px-3 py-2 text-left text-xs leading-snug font-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100`}
+        className={`pointer-events-none absolute z-30 ${wide ? 'w-72' : 'w-60'} rounded-lg ${below ? 'top-5' : 'bottom-5'} ${align === 'left' ? 'left-0' : align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} bg-zinc-900 px-3 py-2 text-left text-xs leading-snug font-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100`}
       >
         {children}
       </span>
