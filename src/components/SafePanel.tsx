@@ -66,11 +66,13 @@ export function SafePanel({ enquiryId, user, terms }: { enquiryId: string; user:
           <Hero
             label="Credit headroom after this deal"
             tone={negative ? 'bad' : 'ok'}
+            caption={
+              <>
+                of <MetricValue r={limit} /> group limit
+              </>
+            }
           >
             <MetricValue r={after} />
-            <span className="ml-1.5 text-sm font-medium text-zinc-500">
-              of <MetricValue r={limit} className="text-zinc-700" /> group limit
-            </span>
           </Hero>
 
           <List>
