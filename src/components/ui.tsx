@@ -47,10 +47,10 @@ const HERO_TONE: Record<Tone, string> = {
   accent: 'text-indigo-600',
 }
 /** The one figure a card leads with. */
-export function Hero({ label, tone = 'neutral', caption, children }: { label: string; tone?: Tone; caption?: ReactNode; children: ReactNode }) {
+export function Hero({ label, tone = 'neutral', caption, children }: { label: ReactNode; tone?: Tone; caption?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs text-zinc-500">{label}</div>
       <div className={`text-[28px] leading-tight font-semibold tracking-tight ${HERO_TONE[tone]}`}>{children}</div>
       {caption && <div className="mt-0.5 text-xs text-zinc-500">{caption}</div>}
     </div>

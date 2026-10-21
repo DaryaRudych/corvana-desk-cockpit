@@ -2,7 +2,7 @@ import { mt, usd, usdMt } from '../lib/format'
 import type { ValueOf } from '../semantic/metrics'
 import { query, type QueryResult, type UserContext } from '../semantic/query'
 import { termsParams, type Terms } from './terms'
-import { Card, Hero, List, ListRow, MetricValue, type Verdict } from './ui'
+import { Card, Hero, InfoTip, List, ListRow, MetricValue, type Verdict } from './ui'
 
 type WinRange = ValueOf<'win_range_similar'>
 
@@ -148,11 +148,38 @@ export function PricePanel({
   const fromCustomer = bd?.baseSource === 'customer'
   const adj = (v: number) => `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}`
 
-  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
+  // No suggested-premium pill: the bold figure below is its one place. The pill only flags a thin margin.
+  const verdict: Verdict | undefined = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : undefined
+  const step = (v: number) => (v ? `${v < 0 ? '−' : '+'}$${Math.abs(v).toFixed(2)}` : '—')
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
-      <Hero label="Suggested premium" tone="accent">
+      <Hero
+        tone="accent"
+        label={
+          <>
+            Suggested premium
+            {bd && (
+              <InfoTip label="How the suggested premium is built" below>
+                <span className="mb-1.5 block font-semibold">Rule: how the suggestion is built</span>
+                <span className="num grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+                  <span className="text-zinc-300">
+                    {bd.baseSource === 'customer' ? 'Customer 12-month avg' : 'Desk avg (< 5 customer deals)'} · {deals.value ?? 0} deals
+                  </span>
+                  <span>{usdMt(bd.base)}</span>
+                  <span className="text-zinc-300">Claims</span>
+                  <span>{step(bd.claimAdj)}</span>
+                  <span className="text-zinc-300">Late payment</span>
+                  <span>{step(bd.dpdAdj)}</span>
+                  <span className="text-zinc-300">Rounding to $0.50</span>
+                  <span>{step(bd.rounding)}</span>
+                </span>
+                <span className="mt-1.5 block text-[11px] text-zinc-400">+$2 if claim share is over 2× the desk’s; +$1 if average days past due is over 3.</span>
+              </InfoTip>
+            )}
+          </>
+        }
+      >
         <MetricValue r={suggested} format={(v: number) => usdMt(v)} />
         <span className="ml-1 text-sm font-medium text-zinc-400">/mt</span>
       </Hero>
