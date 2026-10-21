@@ -219,7 +219,7 @@ export function PricePanel({
   if (bd.dpdAdj) parts.push({ r: b, text: `${plain(bd.dpdAdj)} late pay` })
   if (bd.rounding) parts.push({ r: b, text: `${signed(bd.rounding).replace('+', '')} rounding` })
 
-  const verdict: Verdict | undefined = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : undefined
+  const verdict: Verdict = thinMargin ? { tone: 'warn', label: 'Margin under $3/mt' } : { tone: 'accent', label: `${usdMt(suggested.value ?? 0)}/mt suggested` }
 
   return (
     <Card title="Pricing & Margin" verdict={verdict}>
